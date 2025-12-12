@@ -46,7 +46,7 @@ export default function Home() {
           </Card>
         </Link>
 
-        <Card className="bg-card/50 hover:bg-card/80 transition-colors cursor-pointer border-l-4 border-l-blue-500/50">
+        <Card className="col-span-2 bg-card/50 hover:bg-card/80 transition-colors cursor-pointer border-l-4 border-l-blue-500/50">
           <Link href="/recommendations" className="block w-full h-full cursor-pointer">
             <div className="p-6">
               <CardHeader className="p-0 pb-2">
