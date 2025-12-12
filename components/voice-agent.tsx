@@ -162,44 +162,70 @@ export function VoiceAgent() {
         }
     };
 
+    // Fix 0 Bug: Helper to handle quantity changes
+    const handleQuantityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const val = e.target.value;
+        if (val === '') {
+            // Allow empty temporarily by setting to 0 (or we could use a separate state if needed, 
+            // but for now 0 is safe as long as we don't block typing)
+            // Actually, best way is to cast to number, but if it's empty, we might need a separate 'string' state 
+            // to allow full deletion. 
+            // SIMPLER: use type="text" and manually validate.
+            setParsedCommand(prev => prev ? { ...prev, quantity: 0 } : null);
+        } else {
+            setParsedCommand(prev => prev ? { ...prev, quantity: parseInt(val) || 0 } : null);
+        }
+    };
+
     if (!hasRecognitionSupport) {
         return null;
     }
 
     return (
         <>
-            <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-2 pointer-events-none">
-                {(isListening || processing || isUploading) && (
-                    <div className="bg-card border border-border text-card-foreground px-4 py-2 rounded-lg mb-2 max-w-[250px] text-sm shadow animate-in fade-in slide-in-from-bottom-2 font-medium">
-                        {processing ? <span className="flex items-center gap-2"><Loader2 className="w-3 h-3 animate-spin" /> Processing...</span> :
-                            isUploading ? <span className="flex items-center gap-2"><Loader2 className="w-3 h-3 animate-spin" /> Analyzing Photo...</span> :
-                                (transcript || "Listening...")}
+            {/* LEFT SIDE: Camera Button */}
+            <div className="fixed bottom-6 left-6 z-50 flex flex-col items-start gap-2 pointer-events-none">
+                {/* Uploading State Badge */}
+                {isUploading && (
+                    <div className="bg-card border border-border text-card-foreground px-4 py-2 rounded-lg mb-2 text-sm shadow animate-in fade-in slide-in-from-bottom-2 font-medium">
+                        <span className="flex items-center gap-2"><Loader2 className="w-3 h-3 animate-spin" /> Analyzing...</span>
                     </div>
                 )}
 
-                <div className="flex gap-2 pointer-events-auto">
-                    {/* Camera Input */}
-                    <div className="relative">
-                        <input
-                            type="file"
-                            accept="image/*"
-                            capture="environment"
-                            className="hidden"
-                            id="camera-input"
-                            onChange={handleImageUpload}
-                            disabled={isUploading || processing}
-                        />
-                        <Button
-                            size="icon"
-                            variant="secondary"
-                            className="h-12 w-12 rounded-full shadow-lg border-2 border-background"
-                            onClick={() => document.getElementById('camera-input')?.click()}
-                            disabled={isUploading || processing}
-                        >
-                            <Camera className="h-5 w-5" />
-                        </Button>
-                    </div>
+                <div className="pointer-events-auto relative">
+                    <input
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        className="hidden"
+                        id="camera-input"
+                        onChange={handleImageUpload}
+                        disabled={isUploading || processing}
+                    />
+                    <Button
+                        size="lg"
+                        className={cn(
+                            "h-16 w-16 rounded-full shadow-xl border-4 border-background transition-all duration-300",
+                            "bg-secondary text-secondary-foreground hover:bg-secondary/90"
+                        )}
+                        onClick={() => document.getElementById('camera-input')?.click()}
+                        disabled={isUploading || processing}
+                    >
+                        <Camera className="h-8 w-8" />
+                    </Button>
+                </div>
+            </div>
 
+            {/* RIGHT SIDE: Mic Button & Status */}
+            <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-2 pointer-events-none">
+                {(isListening || processing) && (
+                    <div className="bg-card border border-border text-card-foreground px-4 py-2 rounded-lg mb-2 max-w-[250px] text-sm shadow animate-in fade-in slide-in-from-bottom-2 font-medium">
+                        {processing ? <span className="flex items-center gap-2"><Loader2 className="w-3 h-3 animate-spin" /> Processing...</span> :
+                            (transcript || "Listening...")}
+                    </div>
+                )}
+
+                <div className="pointer-events-auto">
                     <Button
                         size="lg"
                         onClick={handleToggleListening}
@@ -220,8 +246,9 @@ export function VoiceAgent() {
             </div>
 
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                <DialogContent className="sm:max-w-md">
-                    <DialogHeader>
+                {/* Mobile: Top-aligned to avoid keyboard. sm: centered */}
+                <DialogContent className="sm:max-w-md fixed top-[10%] left-[50%] translate-x-[-50%] sm:top-[50%] sm:translate-y-[-50%] translate-y-0 gap-0 p-0 overflow-hidden border-none shadow-2xl bg-card">
+                    <DialogHeader className="p-6 pb-2 bg-gradient-to-b from-card to-card/95">
                         <DialogTitle>Confirm Action</DialogTitle>
                         <DialogDescription>
                             {parsedCommand?.originalTranscript ? `"${parsedCommand.originalTranscript}"` : "Review the parsed details."}
@@ -229,7 +256,7 @@ export function VoiceAgent() {
                     </DialogHeader>
 
                     {parsedCommand && (
-                        <div className="grid gap-4 py-4">
+                        <div className="grid gap-4 p-6 pt-2 overflow-y-auto max-h-[60vh]">
                             <div className="flex items-center gap-4">
                                 <Badge variant={parsedCommand.type === 'REMOVE' ? 'destructive' : parsedCommand.type === 'MOVE' ? 'secondary' : 'default'} className="text-lg py-1 px-4">
                                     {parsedCommand.type}
@@ -237,24 +264,33 @@ export function VoiceAgent() {
                                 <div className="flex-1"></div>
                             </div>
 
-                            <div className="grid grid-cols-4 items-center gap-4">
-                                <Label htmlFor="item" className="text-right">Item</Label>
+                            <div className="grid gap-2">
+                                <Label htmlFor="item" className="text-xs font-semibold uppercase text-muted-foreground">Item</Label>
                                 <Input
                                     id="item"
                                     defaultValue={parsedCommand.item}
-                                    className="col-span-3"
+                                    className="text-lg h-12 bg-background/50"
                                     onChange={(e) => setParsedCommand({ ...parsedCommand, item: e.target.value })}
                                 />
                             </div>
-                            <div className="grid grid-cols-4 items-center gap-4">
-                                <Label htmlFor="qty" className="text-right">Qty</Label>
-                                <div className="col-span-3 flex items-center gap-2">
+
+                            <div className="grid gap-2">
+                                <Label htmlFor="qty" className="text-xs font-semibold uppercase text-muted-foreground">Quantity</Label>
+                                <div className="flex items-center gap-3">
                                     <Input
                                         id="qty"
                                         type="number"
-                                        defaultValue={parsedCommand.quantity}
-                                        onChange={(e) => setParsedCommand({ ...parsedCommand, quantity: Number(e.target.value) })}
-                                        className="w-24"
+                                        inputMode="numeric"
+                                        pattern="[0-9]*"
+                                        // Use value with toString to handle 0 correctly? 
+                                        // The issue is controlled vs uncontrolled. 
+                                        // Let's use value with a safe fallback 
+                                        value={parsedCommand.quantity === 0 ? '' : (parsedCommand.quantity || 0).toString()}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            setParsedCommand({ ...parsedCommand, quantity: val === '' ? 0 : Number(val) })
+                                        }}
+                                        className="text-lg h-12 w-32 bg-background/50"
                                     />
                                     <span className="text-sm text-muted-foreground">Units</span>
                                 </div>
@@ -263,23 +299,23 @@ export function VoiceAgent() {
                             {/* MOVE: Source & Destination */}
                             {parsedCommand.type === 'MOVE' && (
                                 <>
-                                    <div className="grid grid-cols-4 items-center gap-4">
-                                        <Label htmlFor="from" className="text-right">From</Label>
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="from" className="text-xs font-semibold uppercase text-muted-foreground">Source</Label>
                                         <Input
                                             id="from"
                                             defaultValue={parsedCommand.fromLocation || ''}
-                                            placeholder="Source (e.g. Van)"
-                                            className="col-span-3"
+                                            placeholder="From (e.g. Van)"
+                                            className="h-12 bg-background/50"
                                             onChange={(e) => setParsedCommand({ ...parsedCommand, fromLocation: e.target.value })}
                                         />
                                     </div>
-                                    <div className="grid grid-cols-4 items-center gap-4">
-                                        <Label htmlFor="to" className="text-right">To</Label>
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="to" className="text-xs font-semibold uppercase text-muted-foreground">Destination</Label>
                                         <Input
                                             id="to"
                                             defaultValue={parsedCommand.toLocation || ''}
-                                            placeholder="Destination (e.g. Bin A)"
-                                            className="col-span-3"
+                                            placeholder="To (e.g. Bin A)"
+                                            className="h-12 bg-background/50"
                                             onChange={(e) => setParsedCommand({ ...parsedCommand, toLocation: e.target.value })}
                                         />
                                     </div>
@@ -288,13 +324,13 @@ export function VoiceAgent() {
 
                             {/* ADD: Target Location */}
                             {parsedCommand.type === 'ADD' && (
-                                <div className="grid grid-cols-4 items-center gap-4">
-                                    <Label htmlFor="loc" className="text-right">Loc</Label>
+                                <div className="grid gap-2">
+                                    <Label htmlFor="loc" className="text-xs font-semibold uppercase text-muted-foreground">Location</Label>
                                     <Input
                                         id="loc"
                                         defaultValue={parsedCommand.location || ''}
                                         placeholder="Location (Optional)"
-                                        className="col-span-3"
+                                        className="h-12 bg-background/50"
                                         onChange={(e) => setParsedCommand({ ...parsedCommand, location: e.target.value })}
                                     />
                                 </div>
@@ -302,9 +338,9 @@ export function VoiceAgent() {
                         </div>
                     )}
 
-                    <DialogFooter className="flex flex-row sm:justify-between gap-2">
-                        <Button variant="secondary" onClick={() => setIsDialogOpen(false)} className="flex-1">Cancel</Button>
-                        <Button type="submit" onClick={handleConfirm} className="flex-1">
+                    <DialogFooter className="flex flex-row gap-2 p-6 pt-2 bg-card">
+                        <Button variant="secondary" onClick={() => setIsDialogOpen(false)} className="flex-1 h-12">Cancel</Button>
+                        <Button type="submit" onClick={handleConfirm} className="flex-1 h-12 text-base font-semibold">
                             Confirm <Check className="w-4 h-4 ml-2" />
                         </Button>
                     </DialogFooter>
