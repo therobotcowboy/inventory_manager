@@ -247,40 +247,41 @@ export function VoiceAgent() {
 
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                 {/* Mobile: Full Screen Edge-to-Edge. Desktop: Centered Modal */}
-                <DialogContent className="fixed z-50 gap-0 p-0 shadow-lg bg-card 
+                <DialogContent
+                    onOpenAutoFocus={(e) => e.preventDefault()} // 2. Prevent auto-highlight
+                    className="fixed z-50 gap-0 p-0 shadow-lg bg-background 
                     w-full h-full top-0 left-0 translate-x-0 translate-y-0 rounded-none border-none
                     sm:max-w-md sm:h-auto sm:top-[50%] sm:left-[50%] sm:translate-x-[-50%] sm:translate-y-[-50%] sm:rounded-lg sm:border
                     animate-in fade-in zoom-in-95 duration-200 flex flex-col">
 
-                    <DialogHeader className="p-6 pb-4 bg-gradient-to-b from-card to-card/95 border-b border-border/40 flex-shrink-0">
-                        <DialogTitle className="text-xl">Confirm Action</DialogTitle>
-                        <DialogDescription>
-                            {parsedCommand?.originalTranscript ? `"${parsedCommand.originalTranscript}"` : "Review the parsed details."}
-                        </DialogDescription>
+                    <DialogHeader className="p-6 pb-2 bg-background border-b border-border/40 flex-shrink-0">
+                        <DialogTitle className="text-xl font-semibold">Confirm Action</DialogTitle>
+                        {/* 1. Removed Subheader/Description as requested */}
                     </DialogHeader>
 
                     {parsedCommand && (
-                        <div className="flex-1 overflow-y-auto p-6 py-4">
-                            <div className="flex items-center gap-4 mb-6">
-                                <Badge variant={parsedCommand.type === 'REMOVE' ? 'destructive' : parsedCommand.type === 'MOVE' ? 'secondary' : 'default'} className="text-lg py-1 px-4">
+                        <div className="flex-1 overflow-y-auto py-6">
+                            <div className="flex items-center gap-4 mb-8 px-6">
+                                <Badge variant={parsedCommand.type === 'REMOVE' ? 'destructive' : parsedCommand.type === 'MOVE' ? 'secondary' : 'default'} className="text-sm font-bold uppercase tracking-widest py-1 px-3">
                                     {parsedCommand.type}
                                 </Badge>
                             </div>
 
-                            <div className="grid gap-8"> {/* Increased gap for uniform spacing */}
-                                <div className="grid gap-3">
-                                    <Label htmlFor="item" className="text-xs font-semibold uppercase text-muted-foreground tracking-wider">Item Name</Label>
+                            <div className="grid gap-8">
+                                <div className="grid gap-2">
+                                    <Label htmlFor="item" className="px-6 text-xs font-bold uppercase text-muted-foreground tracking-widest">Item Name</Label>
                                     <Input
                                         id="item"
                                         defaultValue={parsedCommand.item}
-                                        className="text-lg h-14 px-4 bg-secondary/20 border-transparent focus:border-primary transition-all"
+                                        // 3. Full Bleed: No side borders, sharp corners, full width
+                                        className="text-lg h-16 px-6 rounded-none border-x-0 border-t-0 border-b border-border/50 bg-secondary/5 focus-visible:ring-0 focus-visible:bg-secondary/10 transition-colors"
                                         onChange={(e) => setParsedCommand({ ...parsedCommand, item: e.target.value })}
                                     />
                                 </div>
 
-                                <div className="grid gap-3">
-                                    <Label htmlFor="qty" className="text-xs font-semibold uppercase text-muted-foreground tracking-wider">Quantity</Label>
-                                    <div className="flex items-center gap-3">
+                                <div className="grid gap-2">
+                                    <Label htmlFor="qty" className="px-6 text-xs font-bold uppercase text-muted-foreground tracking-widest">Quantity</Label>
+                                    <div className="flex items-center bg-secondary/5 border-b border-border/50">
                                         <Input
                                             id="qty"
                                             type="number"
@@ -291,32 +292,32 @@ export function VoiceAgent() {
                                                 const val = e.target.value;
                                                 setParsedCommand({ ...parsedCommand, quantity: val === '' ? 0 : Number(val) })
                                             }}
-                                            className="text-lg h-14 w-32 bg-secondary/20 border-transparent focus:border-primary transition-all"
+                                            className="text-lg h-16 px-6 w-full rounded-none border-none bg-transparent focus-visible:ring-0 focus-visible:bg-secondary/10 transition-colors"
                                         />
-                                        <span className="text-sm font-medium text-muted-foreground">Units</span>
+                                        <span className="text-sm font-medium text-muted-foreground pr-6">UNITS</span>
                                     </div>
                                 </div>
 
                                 {/* MOVE: Source & Destination */}
                                 {parsedCommand.type === 'MOVE' && (
                                     <>
-                                        <div className="grid gap-3">
-                                            <Label htmlFor="from" className="text-xs font-semibold uppercase text-muted-foreground tracking-wider">Source Location</Label>
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="from" className="px-6 text-xs font-bold uppercase text-muted-foreground tracking-widest">Source Location</Label>
                                             <Input
                                                 id="from"
                                                 defaultValue={parsedCommand.fromLocation || ''}
                                                 placeholder="From (e.g. Van)"
-                                                className="h-14 bg-secondary/20 border-transparent text-lg"
+                                                className="text-lg h-16 px-6 rounded-none border-x-0 border-t-0 border-b border-border/50 bg-secondary/5 focus-visible:ring-0 focus-visible:bg-secondary/10 transition-colors"
                                                 onChange={(e) => setParsedCommand({ ...parsedCommand, fromLocation: e.target.value })}
                                             />
                                         </div>
-                                        <div className="grid gap-3">
-                                            <Label htmlFor="to" className="text-xs font-semibold uppercase text-muted-foreground tracking-wider">Destination</Label>
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="to" className="px-6 text-xs font-bold uppercase text-muted-foreground tracking-widest">Destination</Label>
                                             <Input
                                                 id="to"
                                                 defaultValue={parsedCommand.toLocation || ''}
                                                 placeholder="To (e.g. Bin A)"
-                                                className="h-14 bg-secondary/20 border-transparent text-lg"
+                                                className="text-lg h-16 px-6 rounded-none border-x-0 border-t-0 border-b border-border/50 bg-secondary/5 focus-visible:ring-0 focus-visible:bg-secondary/10 transition-colors"
                                                 onChange={(e) => setParsedCommand({ ...parsedCommand, toLocation: e.target.value })}
                                             />
                                         </div>
@@ -325,13 +326,13 @@ export function VoiceAgent() {
 
                                 {/* ADD: Target Location */}
                                 {parsedCommand.type === 'ADD' && (
-                                    <div className="grid gap-3">
-                                        <Label htmlFor="loc" className="text-xs font-semibold uppercase text-muted-foreground tracking-wider">Location</Label>
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="loc" className="px-6 text-xs font-bold uppercase text-muted-foreground tracking-widest">Location</Label>
                                         <Input
                                             id="loc"
                                             defaultValue={parsedCommand.location || ''}
-                                            placeholder="Location (Optional)"
-                                            className="h-14 bg-secondary/20 border-transparent text-lg"
+                                            placeholder="Unassigned"
+                                            className="text-lg h-16 px-6 rounded-none border-x-0 border-t-0 border-b border-border/50 bg-secondary/5 focus-visible:ring-0 focus-visible:bg-secondary/10 transition-colors"
                                             onChange={(e) => setParsedCommand({ ...parsedCommand, location: e.target.value })}
                                         />
                                     </div>

@@ -93,34 +93,33 @@ export function ItemDialog({ open, onOpenChange, initialItem, defaultLocationId 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             {/* Mobile: Full Screen Edge-to-Edge. Desktop: Centered Modal */}
-            <DialogContent className="fixed z-50 gap-0 p-0 shadow-lg bg-card 
+            <DialogContent
+                onOpenAutoFocus={(e) => e.preventDefault()}
+                className="fixed z-50 gap-0 p-0 shadow-lg bg-background 
                 w-full h-full top-0 left-0 translate-x-0 translate-y-0 rounded-none border-none
                 sm:max-w-[425px] sm:h-auto sm:top-[50%] sm:left-[50%] sm:translate-x-[-50%] sm:translate-y-[-50%] sm:rounded-lg sm:border
                 animate-in fade-in zoom-in-95 duration-200 flex flex-col">
 
-                <DialogHeader className="p-6 pb-4 bg-gradient-to-b from-card to-card/95 border-b border-border/40 flex-shrink-0">
-                    <DialogTitle className="text-xl">{initialItem ? "Edit Item" : "Add New Item"}</DialogTitle>
-                    <DialogDescription>
-                        {initialItem ? "Make changes to your inventory here." : "Enter the details for the new tool or part."}
-                    </DialogDescription>
+                <DialogHeader className="p-6 pb-2 bg-background border-b border-border/40 flex-shrink-0">
+                    <DialogTitle className="text-xl font-semibold">{initialItem ? "Edit Item" : "Add New Item"}</DialogTitle>
                 </DialogHeader>
 
-                <div className="flex-1 overflow-y-auto p-6 py-4">
+                <div className="flex-1 overflow-y-auto py-6">
                     <div className="grid gap-8">
-                        <div className="grid gap-3">
-                            <Label htmlFor="name" className="text-xs font-semibold uppercase text-muted-foreground tracking-wider">
+                        <div className="grid gap-2">
+                            <Label htmlFor="name" className="px-6 text-xs font-bold uppercase text-muted-foreground tracking-widest">
                                 Name
                             </Label>
                             <Input
                                 id="name"
                                 value={name}
                                 onChange={(e) => setName(e.target.value)}
-                                className="text-lg h-14 px-4 bg-secondary/20 border-transparent focus:border-primary transition-all"
+                                className="text-lg h-16 px-6 rounded-none border-x-0 border-t-0 border-b border-border/50 bg-secondary/5 focus-visible:ring-0 focus-visible:bg-secondary/10 transition-colors"
                                 placeholder="e.g. 1/2in Screws"
                             />
                         </div>
-                        <div className="grid gap-3">
-                            <Label htmlFor="quantity" className="text-xs font-semibold uppercase text-muted-foreground tracking-wider">
+                        <div className="grid gap-2">
+                            <Label htmlFor="quantity" className="px-6 text-xs font-bold uppercase text-muted-foreground tracking-widest">
                                 Quantity
                             </Label>
                             <Input
@@ -130,14 +129,14 @@ export function ItemDialog({ open, onOpenChange, initialItem, defaultLocationId 
                                 pattern="[0-9]*"
                                 value={quantity === 0 ? '' : quantity.toString()}
                                 onChange={(e) => setQuantity(Number(e.target.value))}
-                                className="text-lg h-14 w-full bg-secondary/20 border-transparent focus:border-primary transition-all"
+                                className="text-lg h-16 px-6 rounded-none border-x-0 border-t-0 border-b border-border/50 bg-secondary/5 focus-visible:ring-0 focus-visible:bg-secondary/10 transition-colors"
                             />
                         </div>
 
-                        <div className="grid gap-3">
-                            <Label htmlFor="location" className="text-xs font-semibold uppercase text-muted-foreground tracking-wider">Location</Label>
+                        <div className="grid gap-2">
+                            <Label htmlFor="location" className="px-6 text-xs font-bold uppercase text-muted-foreground tracking-widest">Location</Label>
                             <Select value={locationId || "unassigned"} onValueChange={(v: string) => setLocationId(v === "unassigned" ? null : v)}>
-                                <SelectTrigger className="h-14 bg-secondary/20 border-transparent text-lg">
+                                <SelectTrigger className="h-16 px-6 rounded-none border-x-0 border-t-0 border-b border-border/50 bg-secondary/5 focus:ring-0 focus:bg-secondary/10 transition-colors text-lg">
                                     <SelectValue placeholder="Unassigned" />
                                 </SelectTrigger>
                                 <SelectContent>
