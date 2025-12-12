@@ -249,8 +249,8 @@ export function VoiceAgent() {
                 {/* Mobile: Full Screen Edge-to-Edge. Desktop: Centered Modal */}
                 <DialogContent
                     onOpenAutoFocus={(e) => e.preventDefault()} // 2. Prevent auto-highlight
-                    className="fixed z-50 gap-0 p-0 shadow-lg bg-background 
-                    w-full h-full top-0 left-0 translate-x-0 translate-y-0 rounded-none border-none
+                    className="fixed z-50 gap-0 p-0 shadow-lg bg-background
+                    w-full h-full max-w-none top-0 left-0 translate-x-0 translate-y-0 rounded-none border-none
                     sm:max-w-md sm:h-auto sm:top-[50%] sm:left-[50%] sm:translate-x-[-50%] sm:translate-y-[-50%] sm:rounded-lg sm:border
                     animate-in fade-in zoom-in-95 duration-200 flex flex-col">
 
