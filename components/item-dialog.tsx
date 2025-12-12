@@ -92,59 +92,72 @@ export function ItemDialog({ open, onOpenChange, initialItem, defaultLocationId 
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[425px]">
-                <DialogHeader>
-                    <DialogTitle>{initialItem ? "Edit Item" : "Add New Item"}</DialogTitle>
+            {/* Mobile: Full Screen Edge-to-Edge. Desktop: Centered Modal */}
+            <DialogContent className="fixed z-50 gap-0 p-0 shadow-lg bg-card 
+                w-full h-full top-0 left-0 translate-x-0 translate-y-0 rounded-none border-none
+                sm:max-w-[425px] sm:h-auto sm:top-[50%] sm:left-[50%] sm:translate-x-[-50%] sm:translate-y-[-50%] sm:rounded-lg sm:border
+                animate-in fade-in zoom-in-95 duration-200 flex flex-col">
+
+                <DialogHeader className="p-6 pb-4 bg-gradient-to-b from-card to-card/95 border-b border-border/40 flex-shrink-0">
+                    <DialogTitle className="text-xl">{initialItem ? "Edit Item" : "Add New Item"}</DialogTitle>
                     <DialogDescription>
                         {initialItem ? "Make changes to your inventory here." : "Enter the details for the new tool or part."}
                     </DialogDescription>
                 </DialogHeader>
-                <div className="grid gap-4 py-4">
-                    <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="name" className="text-right">
-                            Name
-                        </Label>
-                        <Input
-                            id="name"
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                            className="col-span-3"
-                            placeholder="e.g. 1/2in Screws"
-                        />
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="quantity" className="text-right">
-                            Quantity
-                        </Label>
-                        <Input
-                            id="quantity"
-                            type="number"
-                            value={quantity}
-                            onChange={(e) => setQuantity(Number(e.target.value))}
-                            className="col-span-3"
-                        />
+
+                <div className="flex-1 overflow-y-auto p-6 py-4">
+                    <div className="grid gap-8">
+                        <div className="grid gap-3">
+                            <Label htmlFor="name" className="text-xs font-semibold uppercase text-muted-foreground tracking-wider">
+                                Name
+                            </Label>
+                            <Input
+                                id="name"
+                                value={name}
+                                onChange={(e) => setName(e.target.value)}
+                                className="text-lg h-14 px-4 bg-secondary/20 border-transparent focus:border-primary transition-all"
+                                placeholder="e.g. 1/2in Screws"
+                            />
+                        </div>
+                        <div className="grid gap-3">
+                            <Label htmlFor="quantity" className="text-xs font-semibold uppercase text-muted-foreground tracking-wider">
+                                Quantity
+                            </Label>
+                            <Input
+                                id="quantity"
+                                type="number"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
+                                value={quantity === 0 ? '' : quantity.toString()}
+                                onChange={(e) => setQuantity(Number(e.target.value))}
+                                className="text-lg h-14 w-full bg-secondary/20 border-transparent focus:border-primary transition-all"
+                            />
+                        </div>
+
+                        <div className="grid gap-3">
+                            <Label htmlFor="location" className="text-xs font-semibold uppercase text-muted-foreground tracking-wider">Location</Label>
+                            <Select value={locationId || "unassigned"} onValueChange={(v: string) => setLocationId(v === "unassigned" ? null : v)}>
+                                <SelectTrigger className="h-14 bg-secondary/20 border-transparent text-lg">
+                                    <SelectValue placeholder="Unassigned" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="unassigned">Unassigned</SelectItem>
+                                    {locations?.map(loc => (
+                                        <SelectItem key={loc.id} value={loc.id}>
+                                            {loc.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
                     </div>
                 </div>
-                <div className="grid grid-cols-4 items-center gap-4 pb-4">
-                    <Label htmlFor="location" className="text-right">Location</Label>
-                    <Select value={locationId || "unassigned"} onValueChange={(v: string) => setLocationId(v === "unassigned" ? null : v)}>
-                        <SelectTrigger className="col-span-3">
-                            <SelectValue placeholder="Unassigned" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="unassigned">Unassigned</SelectItem>
-                            {locations?.map(loc => (
-                                <SelectItem key={loc.id} value={loc.id}>
-                                    {loc.name}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                </div>
-                <DialogFooter>
-                    <Button type="submit" onClick={handleSave} disabled={loading}>
+
+                <DialogFooter className="p-6 bg-card border-t border-border/40 mt-auto flex-shrink-0 sm:mt-0">
+                    <Button variant="outline" onClick={() => onOpenChange(false)} className="flex-1 h-12 text-base sm:hidden">Cancel</Button>
+                    <Button type="submit" onClick={handleSave} disabled={loading} className="flex-1 h-12 text-base font-semibold shadow-lg shadow-primary/20">
                         {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Save changes
+                        Save Changes
                     </Button>
                 </DialogFooter>
             </DialogContent>
