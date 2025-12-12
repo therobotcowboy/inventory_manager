@@ -25,9 +25,10 @@ interface ItemDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     initialItem?: Item | null; // If null, we are adding new
+    defaultLocationId?: string;
 }
 
-export function ItemDialog({ open, onOpenChange, initialItem }: ItemDialogProps) {
+export function ItemDialog({ open, onOpenChange, initialItem, defaultLocationId }: ItemDialogProps) {
     const [name, setName] = useState('');
     const [quantity, setQuantity] = useState(0);
     const [locationId, setLocationId] = useState<string | null>(null);
@@ -46,10 +47,10 @@ export function ItemDialog({ open, onOpenChange, initialItem }: ItemDialogProps)
             } else {
                 setName('');
                 setQuantity(0);
-                setLocationId(null);
+                setLocationId(defaultLocationId || null);
             }
         }
-    }, [open, initialItem]);
+    }, [open, initialItem, defaultLocationId]);
 
     const handleSave = async () => {
         if (!name.trim()) {

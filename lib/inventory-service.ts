@@ -95,6 +95,7 @@ export const InventoryService = {
         };
 
         await db.auditLogs.add(auditLog);
+
         await db.offlineQueue.add({
             timestamp: auditLog.timestamp,
             type: 'SYNC_PUSH',
@@ -107,27 +108,164 @@ export const InventoryService = {
         });
     },
 
-    async processCommand(command: ParsedVoiceCommand) {
-        // ... (existing implementation, can be refactored to use above methods later)
+    async resolveLocation(name?: string): Promise<string | undefined> {
+        if (!name) return undefined;
+
+        const normalize = (str: string) => {
+            return str.toLowerCase()
+                .replace(/\bone\b/g, '1')
+                .replace(/\btwo\b/g, '2')
+                .replace(/\bthree\b/g, '3')
+                .replace(/\bfour\b/g, '4')
+                .replace(/\bfive\b/g, '5')
+                // Remove punctuation/symbols for looser match
+                .replace(/[^a-z0-9 ]/g, '')
+                .trim();
+        };
+
+        const search = normalize(name);
+        const allLocs = await db.locations.toArray();
+
+        // 1. Exact match on normalized fields
+        let match = allLocs.find(l => normalize(l.name) === search);
+
+        // 2. Contains match (e.g. "Van 1" inside "Main Van 1")
+        if (!match) {
+            match = allLocs.find(l => normalize(l.name).includes(search) || search.includes(normalize(l.name)));
+        }
+
+        return match?.id;
+    },
+
+    async moveItem(itemName: string, quantity: number, fromLocName?: string, toLocName?: string, transcript: string = "") {
+        const fromLocId = await this.resolveLocation(fromLocName);
+        const toLocId = await this.resolveLocation(toLocName);
         const timestamp = new Date().toISOString();
 
-        const itemName = command.item_name.toLowerCase().trim();
+        // 1. Identify Source Item
+        let sourceItem: Item | undefined;
+        if (fromLocId) {
+            // Precise query
+            const candidates = await db.items
+                .where('location_id').equals(fromLocId)
+                .filter(i => i.name.toLowerCase() === itemName.toLowerCase())
+                .toArray();
+            sourceItem = candidates[0];
+        } else {
+            // Loose query (find first occurrence anywhere)
+            const candidates = await db.items
+                .filter(i => i.name.toLowerCase() === itemName.toLowerCase())
+                .toArray();
+            sourceItem = candidates[0];
+        }
 
-        // 1. Find existing item
-        // Simple search: filter by name. In a real app we'd want better search.
-        const existingItems = await db.items
-            .filter(i => i.name.toLowerCase() === itemName)
-            .toArray();
+        if (!sourceItem) {
+            throw new Error(`Item ${itemName} not found${fromLocName ? ` in ${fromLocName}` : ''}`);
+        }
 
-        // For MVP, if multiple found, pick first. If none, create new.
-        let targetItem: Item | undefined = existingItems[0];
+        if (sourceItem.quantity < quantity) {
+            throw new Error(`Not enough quantity: Has ${sourceItem.quantity}, trying to move ${quantity}`);
+        }
+
+        // 2. Identify/Create Dest Item
+        let destItem: Item | undefined;
+        if (toLocId) {
+            const candidates = await db.items
+                .where('location_id').equals(toLocId)
+                .filter(i => i.name.toLowerCase() === itemName.toLowerCase())
+                .toArray();
+            destItem = candidates[0];
+        } else {
+            // Moving to unknown location? If toLocName is missing. 
+            // If they just say "Move drill", maybe they mean "Remove"?
+            // But if type is MOVE, we expect a destination logic unless we fallback to "Unassigned" (null).
+            // Let's assume toLocId = null (Unassigned) if not found, OR just create new unassigned item.
+            const candidates = await db.items
+                .filter(i => i.name.toLowerCase() === itemName.toLowerCase() && !i.location_id)
+                .toArray();
+            destItem = candidates[0];
+        }
+
+        // Transaction manually
+        // Decrement Source
+        await this.updateItem(sourceItem.id, { quantity: sourceItem.quantity - quantity });
+
+        // Increment Dest
+        if (destItem) {
+            await this.updateItem(destItem.id, { quantity: destItem.quantity + quantity });
+        } else {
+            // Create new at dest
+            const newItem: Item = {
+                id: crypto.randomUUID(),
+                name: sourceItem.name, // Correct casing
+                quantity: quantity,
+                updated_at: timestamp,
+                location_id: toLocId, // could be undefined
+                low_stock_threshold: sourceItem.low_stock_threshold,
+                category: sourceItem.category
+            };
+            await db.items.add(newItem);
+            await db.offlineQueue.add({
+                timestamp, type: 'SYNC_PUSH', synced: false,
+                payload: { table: 'items', action: 'INSERT', data: newItem }
+            });
+            await this.logAudit(newItem.id, 'MOVE_IN', quantity, transcript);
+            destItem = newItem;
+        }
+
+        await this.logAudit(sourceItem.id, 'MOVE_OUT', quantity, transcript);
+
+        return { success: true, movedItem: destItem };
+    },
+
+    async processCommand(command: ParsedVoiceCommand) {
+        const timestamp = new Date().toISOString();
+        const itemName = command.item.toLowerCase().trim();
+
+        if (command.type === 'MOVE') {
+            try {
+                return await this.moveItem(
+                    itemName,
+                    command.quantity || 1,
+                    command.fromLocation,
+                    command.toLocation,
+                    command.originalTranscript
+                );
+            } catch (e: any) {
+                console.error("Move Failed", e);
+                // Fallback? Or just throw so UI shows error?
+                // Throwing allows VoiceAgent to show toast error
+                throw e;
+            }
+        }
+
+        // Logic branching for ADD / REMOVE
+        // Resolving location logic for ADD (Feature A preparation)
+        const targetLocId = await this.resolveLocation(command.location);
+
+        // Find existing item (fuzzy or specific to location if we implement Feature A fully)
+        // For now, if location specified, try find there first.
+        let targetItem: Item | undefined;
+        let candidates;
+
+        if (targetLocId) {
+            candidates = await db.items
+                .where('location_id').equals(targetLocId)
+                .filter(i => i.name.toLowerCase() === itemName)
+                .toArray();
+        } else {
+            candidates = await db.items
+                .filter(i => i.name.toLowerCase() === itemName)
+                .toArray();
+        }
+        targetItem = candidates[0];
+
         let isNew = false;
 
-        // Logic branching
-        if (command.action === 'ADD') {
+        if (command.type === 'ADD') {
             if (targetItem) {
                 // Update
-                targetItem.quantity += command.quantity;
+                targetItem.quantity += (command.quantity || 1);
                 targetItem.updated_at = timestamp;
                 await db.items.put(targetItem);
 
@@ -148,54 +286,10 @@ export const InventoryService = {
                 isNew = true;
                 targetItem = {
                     id: crypto.randomUUID(),
-                    name: command.item_name, // keep original casing for display
-                    quantity: command.quantity,
+                    name: command.item, // keep original casing
+                    quantity: command.quantity || 1,
                     updated_at: timestamp,
-                    location_id: undefined, // Default to null/van for now
-                    low_stock_threshold: 10, // Default threshold
-                    category: 'Uncategorized'
-                };
-                await db.items.add(targetItem);
-
-                // Queue Insert
-                await db.offlineQueue.add({
-                    timestamp,
-                    type: 'SYNC_PUSH',
-                    synced: false,
-                    payload: {
-                        table: 'items',
-                        action: 'INSERT',
-                        data: targetItem
-                    }
-                });
-            }
-        } else if (command.action === 'REMOVE') {
-            if (targetItem) {
-                targetItem.quantity = Math.max(0, targetItem.quantity - command.quantity);
-                targetItem.updated_at = timestamp;
-                await db.items.put(targetItem);
-
-                // Queue Update
-                await db.offlineQueue.add({
-                    timestamp,
-                    type: 'SYNC_PUSH',
-                    synced: false,
-                    payload: {
-                        table: 'items',
-                        action: 'UPDATE',
-                        data: targetItem
-                    }
-                });
-            } else {
-                // Trying to remove non-existent item? 
-                // We can silently ignore or maybe create it with 0? 
-                // For now, let's create a "Ghost" item with 0 so user knows we tried.
-                isNew = true;
-                targetItem = {
-                    id: crypto.randomUUID(),
-                    name: command.item_name,
-                    quantity: 0,
-                    updated_at: timestamp,
+                    location_id: targetLocId, // Feature A: Assign location if parsed
                     low_stock_threshold: 10,
                     category: 'Uncategorized'
                 };
@@ -213,24 +307,58 @@ export const InventoryService = {
                     }
                 });
             }
+        } else if (command.type === 'REMOVE') {
+            if (targetItem) {
+                targetItem.quantity = Math.max(0, targetItem.quantity - (command.quantity || 1));
+                targetItem.updated_at = timestamp;
+                await db.items.put(targetItem);
+
+                // Queue Update
+                await db.offlineQueue.add({
+                    timestamp,
+                    type: 'SYNC_PUSH',
+                    synced: false,
+                    payload: {
+                        table: 'items',
+                        action: 'UPDATE',
+                        data: targetItem
+                    }
+                });
+            } else {
+                // Remove non-existent?
+                isNew = true;
+                targetItem = {
+                    id: crypto.randomUUID(),
+                    name: command.item,
+                    quantity: 0,
+                    updated_at: timestamp,
+                    low_stock_threshold: 10,
+                    category: 'Uncategorized',
+                    location_id: targetLocId
+                };
+                await db.items.add(targetItem);
+                await db.offlineQueue.add({
+                    timestamp, type: 'SYNC_PUSH', synced: false,
+                    payload: { table: 'items', action: 'INSERT', data: targetItem }
+                });
+            }
         }
 
         // 2. Log to Audit (Local + Queue)
-        // Ensure targetItem is defined
         if (targetItem && targetItem.id) {
             const auditLog = {
                 id: crypto.randomUUID(),
                 item_id: targetItem.id,
-                action: command.action,
-                quantity_change: command.quantity, // Log absolute value or delta? Schema says int. Let's stick to positive magnitude + action enum.
-                voice_transcript: command.original_transcript,
+                action: command.type,
+                quantity_change: command.quantity,
+                voice_transcript: command.originalTranscript,
                 timestamp: timestamp
             };
 
             await db.auditLogs.add(auditLog);
 
             await db.offlineQueue.add({
-                timestamp,
+                timestamp: auditLog.timestamp,
                 type: 'SYNC_PUSH',
                 synced: false,
                 payload: {

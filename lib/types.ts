@@ -38,14 +38,18 @@ export interface JobRecommendation {
   }[];
 }
 
+// Voice
+export type VoiceCommandType = 'ADD' | 'REMOVE' | 'QUERY' | 'MOVE';
+
 export interface ParsedVoiceCommand {
-  action: 'ADD' | 'REMOVE' | 'MOVE' | 'CHECK';
-  item_name: string;
-  quantity: number;
-  source_location?: string;
-  destination_location?: string;
+  type: VoiceCommandType;
+  item: string;
+  quantity?: number;
+  location?: string; // For ADD/QUERY (Target location)
+  fromLocation?: string; // For MOVE (Source)
+  toLocation?: string; // For MOVE (Destination)
+  originalTranscript: string;
   confidence: number;
-  original_transcript?: string;
 }
 
 export interface Location {

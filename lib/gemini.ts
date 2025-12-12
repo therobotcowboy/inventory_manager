@@ -14,7 +14,6 @@ export const AiService = {
         if (!apiKey) {
             throw new Error("Missing GEMINI_API_KEY");
         }
-
         const prompt = `
       You are an inventory assistant for a handyman. 
       Parse the following voice command into a structured JSON object.
@@ -23,18 +22,26 @@ export const AiService = {
 
       Output structure:
       {
-        "action": "ADD" | "REMOVE" | "MOVE" | "CHECK",
-        "item_name": "string (standardized tool/part name)",
+        "type": "ADD" | "REMOVE" | "MOVE" | "QUERY",
+        "item": "string (standardized tool/part name)",
         "quantity": number,
-        "source_location": "string (optional)",
-        "destination_location": "string (optional)",
+        "location": "string (for ADD: destination, for QUERY: context)",
+        "fromLocation": "string (for MOVE: source)",
+        "toLocation": "string (for MOVE: destination)",
         "confidence": number (0-1)
       }
 
       Rules:
       - "Used", "Took", "Installed" -> REMOVE
-      - "Bought", "Got", "Restocked" -> ADD
-      - "Put", "Moved" -> MOVE
+      - "Bought", "Got", "Restocked", "Add" -> ADD
+      - "Put", "Moved", "Transfer" -> MOVE
+      - "Where is", "Do I have", "Show me" -> QUERY
+      
+      Specific Examples:
+      - "Add 5 screws to Bin A": type=ADD, item="screws", quantity=5, location="Bin A"
+      - "Put the drill in the van": type=MOVE, item="drill", toLocation="van" (or ADD if clearly new stock, usually MOVE)
+      - "Move 5 screws from Van to Bin A": type=MOVE, item="screws", quantity=5, fromLocation="Van", toLocation="Bin A"
+      
       - If quantity is missing, default to 1.
       - Return ONLY the JSON string, no markdown.
     `;
@@ -48,9 +55,17 @@ export const AiService = {
             const cleanJson = text.replace(/```json/g, '').replace(/```/g, '').trim();
 
             const parsed = JSON.parse(cleanJson);
+
+            // Map to strict types if needed (though prompt asks for matching keys now)
             return {
-                ...parsed,
-                original_transcript: transcript
+                type: parsed.type,
+                item: parsed.item,
+                quantity: parsed.quantity,
+                location: parsed.location,
+                fromLocation: parsed.fromLocation,
+                toLocation: parsed.toLocation,
+                confidence: parsed.confidence,
+                originalTranscript: transcript
             } as ParsedVoiceCommand;
 
         } catch (error) {
@@ -92,6 +107,55 @@ export const AiService = {
             return JSON.parse(cleanJson);
         } catch (error) {
             console.error("Gemini Recs Error:", error);
+            throw error;
+        }
+    },
+    async identifyItem(imageBase64: string): Promise<ParsedVoiceCommand> {
+        if (!apiKey) throw new Error("Missing GEMINI_API_KEY");
+
+        const prompt = `
+          You are an expert master tradesman. Look at this photo of a tool or part.
+          Identify it precisely (e.g. "1/2 inch drill bit" or "Phillips head screwdriver").
+          Estimate the quantity if possible (defaults to 1).
+          
+          Return a JSON object matching this structure:
+          {
+            "type": "ADD",
+            "item": "string (name of item)",
+            "quantity": number (count visible),
+            "confidence": number (0-1)
+          }
+          
+          Rules:
+          - Return ONLY JSON.
+          - If the image is unclear, set confidence low.
+        `;
+
+        try {
+            // Gemini Vision requires specific format
+            const imagePart = {
+                inlineData: {
+                    data: imageBase64,
+                    mimeType: "image/jpeg"
+                }
+            };
+
+            const result = await model.generateContent([prompt, imagePart]);
+            const response = await result.response;
+            const text = response.text();
+            const cleanJson = text.replace(/```json/g, '').replace(/```/g, '').trim();
+            const parsed = JSON.parse(cleanJson);
+
+            return {
+                type: 'ADD', // Default to ADD for found items
+                item: parsed.item,
+                quantity: parsed.quantity || 1,
+                location: undefined, // Let user decide or we can default to unassigned
+                confidence: parsed.confidence,
+                originalTranscript: `Photo of ${parsed.item}`
+            };
+        } catch (error) {
+            console.error("Gemini Vision Error:", error);
             throw error;
         }
     }

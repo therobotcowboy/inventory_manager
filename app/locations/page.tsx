@@ -14,6 +14,7 @@ import { processOfflineQueue } from '@/lib/sync-engine';
 
 export default function LocationsPage() {
     const locations = useLiveQuery(() => db.locations.toArray());
+    const items = useLiveQuery(() => db.items.toArray());
     const [dialogOpen, setDialogOpen] = useState(false);
     const [editingLoc, setEditingLoc] = useState<Location | null>(null);
 
@@ -54,31 +55,44 @@ export default function LocationsPage() {
         }
     };
 
+    // Helper to get total items in a location
+    const getItemCount = (locationId: string) => {
+        return items?.filter(i => i.location_id === locationId).length || 0;
+    };
+
     // Recursive function to render hierarchy
     const renderLocationNode = (loc: Location, level: number = 0) => {
         const children = locations?.filter(l => l.parent_id === loc.id) || [];
+        const itemCount = getItemCount(loc.id);
 
         return (
             <div key={loc.id} className="flex flex-col">
-                <Card className="mb-2 bg-card border-white/5 hover:bg-card/80 transition-colors">
-                    <CardContent className="p-3 flex items-center justify-between">
-                        <div className="flex items-center gap-3" style={{ marginLeft: `${level * 24}px` }}>
-                            {level === 0 ? <MapPin className="h-4 w-4 text-primary" /> : <FolderOpen className="h-4 w-4 text-muted-foreground" />}
-                            <div>
-                                <div className="font-medium text-white">{loc.name}</div>
-                                <div className="text-[10px] text-muted-foreground uppercase">{loc.type}</div>
+                <Link href={`/locations/${loc.id}`}>
+                    <Card className="mb-2 bg-card border-white/5 hover:bg-card/80 transition-colors cursor-pointer group">
+                        <CardContent className="p-3 flex items-center justify-between">
+                            <div className="flex items-center gap-3" style={{ marginLeft: `${level * 24}px` }}>
+                                {level === 0 ? <MapPin className="h-4 w-4 text-primary group-hover:text-blue-400 transition-colors" /> : <FolderOpen className="h-4 w-4 text-muted-foreground group-hover:text-blue-400 transition-colors" />}
+                                <div>
+                                    <div className="font-medium text-white group-hover:text-blue-400 transition-colors">{loc.name}</div>
+                                    <div className="flex items-center gap-2 text-[10px] text-muted-foreground uppercase">
+                                        <span>{loc.type}</span>
+                                        <span className="text-white/20">•</span>
+                                        <span className="text-blue-400">{itemCount} items</span>
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                        <div className="flex gap-1">
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditDialog(loc)}>
-                                <Pencil className="h-3 w-3 text-muted-foreground" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDelete(loc.id, loc.name)}>
-                                <Trash2 className="h-3 w-3 text-red-400" />
-                            </Button>
-                        </div>
-                    </CardContent>
-                </Card>
+                            <div className="flex gap-1" onClick={(e) => e.preventDefault()}>
+                                {/* Stop propagation on buttons so we can click Edit/Delete without navigating */}
+                                <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/10" onClick={(e) => { e.stopPropagation(); openEditDialog(loc); }}>
+                                    <Pencil className="h-3 w-3 text-muted-foreground" />
+                                </Button>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/10" onClick={(e) => { e.stopPropagation(); handleDelete(loc.id, loc.name); }}>
+                                    <Trash2 className="h-3 w-3 text-red-400" />
+                                </Button>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </Link>
                 {children.map(child => renderLocationNode(child, level + 1))}
             </div>
         );

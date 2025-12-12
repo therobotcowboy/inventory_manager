@@ -67,22 +67,25 @@ export const MockAiService = {
 
         // Simple heuristic parser for demo
         const lower = transcript.toLowerCase();
-        let action: ParsedVoiceCommand['action'] = 'CHECK';
+        let type: ParsedVoiceCommand['type'] = 'QUERY';
         let qty = 1;
 
-        if (lower.includes('add') || lower.includes('bought') || lower.includes('got')) action = 'ADD';
-        if (lower.includes('use') || lower.includes('took') || lower.includes('remove')) action = 'REMOVE';
-        if (lower.includes('move') || lower.includes('put')) action = 'MOVE';
+        if (lower.includes('add') || lower.includes('bought') || lower.includes('got')) type = 'ADD';
+        if (lower.includes('remove') || lower.includes('used') || lower.includes('took')) type = 'REMOVE';
+        if (lower.includes('move') || lower.includes('put')) type = 'MOVE';
 
         // Extract number (very basic)
         const numberMatch = lower.match(/\d+/);
         if (numberMatch) qty = parseInt(numberMatch[0], 10);
 
+        // Fake item extraction
+        const item = "unknown item";
+
         return {
-            action,
-            item_name: 'Unknown Item (Mock Parsed)', // In real app, Gemini extracts this
+            type,
+            item,
             quantity: qty,
-            original_transcript: transcript,
+            originalTranscript: transcript,
             confidence: 0.85
         };
     },

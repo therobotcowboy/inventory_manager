@@ -17,6 +17,7 @@ import { processOfflineQueue } from '@/lib/sync-engine';
 
 export default function InventoryPage() {
     const items = useLiveQuery(() => db.items.toArray());
+    const locations = useLiveQuery(() => db.locations.toArray());
     const [search, setSearch] = useState("");
 
     // Manual Management State
@@ -24,7 +25,7 @@ export default function InventoryPage() {
     const [editingItem, setEditingItem] = useState<Item | null>(null);
 
     // Initial Loading State
-    if (!items) {
+    if (!items || !locations) {
         return (
             <div className="flex h-screen items-center justify-center">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -44,6 +45,11 @@ export default function InventoryPage() {
     const openEditDialog = (item: Item) => {
         setEditingItem(item);
         setDialogOpen(true);
+    };
+
+    const getLocationName = (id?: string) => {
+        if (!id) return "Unassigned";
+        return locations.find(l => l.id === id)?.name || "Unknown";
     };
 
     const handleDelete = async (id: string, name: string) => {
@@ -128,6 +134,10 @@ export default function InventoryPage() {
                                     <div className="flex items-center gap-2 mt-1">
                                         <Badge variant="secondary" className="text-xs">
                                             Qty: {item.quantity}
+                                        </Badge>
+                                        <Badge variant="outline" className="text-xs border-white/10 text-muted-foreground flex items-center gap-1">
+                                            <div className="w-1.5 h-1.5 rounded-full bg-blue-500/50" />
+                                            {getLocationName(item.location_id)}
                                         </Badge>
                                         {item.quantity <= item.low_stock_threshold && (
                                             <Badge variant="destructive" className="flex gap-1 items-center text-[10px] px-1 h-5">

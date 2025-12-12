@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from 'react';
-import { Mic, Square, Loader2, Check } from 'lucide-react';
+import { Mic, Square, Loader2, Check, Camera } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { useSpeechRecognition } from '@/hooks/use-speech-recognition';
-import { parseVoiceCommandAction } from '@/app/actions';
+import { parseVoiceCommandAction, analyzeImageAction } from '@/app/actions';
 import { ParsedVoiceCommand } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { db } from '@/lib/db';
@@ -75,7 +75,7 @@ export function VoiceAgent() {
 
             // Trigger Sync immediately
             processOfflineQueue();
-            toast.success(`Updated ${parsedCommand.item_name}`);
+            toast.success(`Updated ${parsedCommand.item}`);
 
         } catch (error) {
             console.error("Failed to save command", error);
@@ -86,6 +86,48 @@ export function VoiceAgent() {
         setParsedCommand(null);
     };
 
+    const [isUploading, setIsUploading] = useState(false);
+
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setIsUploading(true);
+        toast.info("Analyzing photo...");
+
+        try {
+            // 1. Convert to Base64
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = async () => {
+                const base64 = reader.result as string;
+
+                // 2. Call Server Action (Gemini Vision)
+                const result = await analyzeImageAction(base64);
+
+                // 3. Populate Dialog
+                if (result) {
+                    setParsedCommand(result);
+                    setIsDialogOpen(true);
+                    toast.success(`Identified: ${result.item}`);
+                }
+                setIsUploading(false);
+            };
+
+            reader.onerror = () => {
+                throw new Error("Failed to read file");
+            }
+
+        } catch (error) {
+            console.error("Analysis failed", error);
+            toast.error("Failed to analyze image");
+            setIsUploading(false);
+        } finally {
+            // Reset input so same file can be selected again if needed
+            e.target.value = '';
+        }
+    };
+
     if (!hasRecognitionSupport) {
         return null;
     }
@@ -93,28 +135,54 @@ export function VoiceAgent() {
     return (
         <>
             <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-2 pointer-events-none">
-                {(isListening || processing) && (
+                {(isListening || processing || isUploading) && (
                     <div className="bg-card border border-border text-card-foreground px-4 py-2 rounded-lg mb-2 max-w-[250px] text-sm shadow animate-in fade-in slide-in-from-bottom-2 font-medium">
-                        {processing ? <span className="flex items-center gap-2"><Loader2 className="w-3 h-3 animate-spin" /> Processing...</span> : (transcript || "Listening...")}
+                        {processing ? <span className="flex items-center gap-2"><Loader2 className="w-3 h-3 animate-spin" /> Processing...</span> :
+                            isUploading ? <span className="flex items-center gap-2"><Loader2 className="w-3 h-3 animate-spin" /> Analyzing Photo...</span> :
+                                (transcript || "Listening...")}
                     </div>
                 )}
 
-                <Button
-                    size="lg"
-                    onClick={handleToggleListening}
-                    className={cn(
-                        "h-16 w-16 rounded-full shadow-xl border-4 border-background pointer-events-auto transition-all duration-300",
-                        isListening ? "bg-white text-primary hover:bg-gray-100 animate-pulse" : "bg-primary hover:bg-primary/90"
-                    )}
-                >
-                    {processing ? (
-                        <Loader2 className="h-8 w-8 animate-spin" />
-                    ) : isListening ? (
-                        <Square className="h-6 w-6 fill-current" />
-                    ) : (
-                        <Mic className="h-8 w-8" />
-                    )}
-                </Button>
+                <div className="flex gap-2 pointer-events-auto">
+                    {/* Camera Input */}
+                    <div className="relative">
+                        <input
+                            type="file"
+                            accept="image/*"
+                            capture="environment"
+                            className="hidden"
+                            id="camera-input"
+                            onChange={handleImageUpload}
+                            disabled={isUploading || processing}
+                        />
+                        <Button
+                            size="icon"
+                            variant="secondary"
+                            className="h-12 w-12 rounded-full shadow-lg border-2 border-background"
+                            onClick={() => document.getElementById('camera-input')?.click()}
+                            disabled={isUploading || processing}
+                        >
+                            <Camera className="h-5 w-5" />
+                        </Button>
+                    </div>
+
+                    <Button
+                        size="lg"
+                        onClick={handleToggleListening}
+                        className={cn(
+                            "h-16 w-16 rounded-full shadow-xl border-4 border-background transition-all duration-300",
+                            isListening ? "bg-white text-primary hover:bg-gray-100 animate-pulse" : "bg-primary hover:bg-primary/90"
+                        )}
+                    >
+                        {processing ? (
+                            <Loader2 className="h-8 w-8 animate-spin" />
+                        ) : isListening ? (
+                            <Square className="h-6 w-6 fill-current" />
+                        ) : (
+                            <Mic className="h-8 w-8" />
+                        )}
+                    </Button>
+                </div>
             </div>
 
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -122,15 +190,15 @@ export function VoiceAgent() {
                     <DialogHeader>
                         <DialogTitle>Confirm Action</DialogTitle>
                         <DialogDescription>
-                            {parsedCommand?.original_transcript ? `"${parsedCommand.original_transcript}"` : "Review the parsed details."}
+                            {parsedCommand?.originalTranscript ? `"${parsedCommand.originalTranscript}"` : "Review the parsed details."}
                         </DialogDescription>
                     </DialogHeader>
 
                     {parsedCommand && (
                         <div className="grid gap-4 py-4">
                             <div className="flex items-center gap-4">
-                                <Badge variant={parsedCommand.action === 'REMOVE' ? 'destructive' : 'default'} className="text-lg py-1 px-4">
-                                    {parsedCommand.action}
+                                <Badge variant={parsedCommand.type === 'REMOVE' ? 'destructive' : parsedCommand.type === 'MOVE' ? 'secondary' : 'default'} className="text-lg py-1 px-4">
+                                    {parsedCommand.type}
                                 </Badge>
                                 <div className="flex-1"></div>
                             </div>
@@ -139,9 +207,9 @@ export function VoiceAgent() {
                                 <Label htmlFor="item" className="text-right">Item</Label>
                                 <Input
                                     id="item"
-                                    defaultValue={parsedCommand.item_name}
+                                    defaultValue={parsedCommand.item}
                                     className="col-span-3"
-                                    onChange={(e) => setParsedCommand({ ...parsedCommand, item_name: e.target.value })}
+                                    onChange={(e) => setParsedCommand({ ...parsedCommand, item: e.target.value })}
                                 />
                             </div>
                             <div className="grid grid-cols-4 items-center gap-4">
@@ -157,6 +225,46 @@ export function VoiceAgent() {
                                     <span className="text-sm text-muted-foreground">Units</span>
                                 </div>
                             </div>
+
+                            {/* MOVE: Source & Destination */}
+                            {parsedCommand.type === 'MOVE' && (
+                                <>
+                                    <div className="grid grid-cols-4 items-center gap-4">
+                                        <Label htmlFor="from" className="text-right">From</Label>
+                                        <Input
+                                            id="from"
+                                            defaultValue={parsedCommand.fromLocation || ''}
+                                            placeholder="Source (e.g. Van)"
+                                            className="col-span-3"
+                                            onChange={(e) => setParsedCommand({ ...parsedCommand, fromLocation: e.target.value })}
+                                        />
+                                    </div>
+                                    <div className="grid grid-cols-4 items-center gap-4">
+                                        <Label htmlFor="to" className="text-right">To</Label>
+                                        <Input
+                                            id="to"
+                                            defaultValue={parsedCommand.toLocation || ''}
+                                            placeholder="Destination (e.g. Bin A)"
+                                            className="col-span-3"
+                                            onChange={(e) => setParsedCommand({ ...parsedCommand, toLocation: e.target.value })}
+                                        />
+                                    </div>
+                                </>
+                            )}
+
+                            {/* ADD: Target Location */}
+                            {parsedCommand.type === 'ADD' && (
+                                <div className="grid grid-cols-4 items-center gap-4">
+                                    <Label htmlFor="loc" className="text-right">Loc</Label>
+                                    <Input
+                                        id="loc"
+                                        defaultValue={parsedCommand.location || ''}
+                                        placeholder="Location (Optional)"
+                                        className="col-span-3"
+                                        onChange={(e) => setParsedCommand({ ...parsedCommand, location: e.target.value })}
+                                    />
+                                </div>
+                            )}
                         </div>
                     )}
 
