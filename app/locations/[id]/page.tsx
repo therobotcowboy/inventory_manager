@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Plus, Pencil, Trash2, MapPin, FolderOpen, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Plus, Pencil, Trash2, MapPin, FolderOpen, AlertTriangle, ChevronDown, ListFilter } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { ItemDialog } from '@/components/item-dialog';
@@ -14,6 +14,15 @@ import { InventoryService } from '@/lib/inventory-service';
 import { toast } from 'sonner';
 import { processOfflineQueue } from '@/lib/sync-engine';
 import { useParams, useRouter } from 'next/navigation';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuCheckboxItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export default function LocationDetailPage() {
     const params = useParams();
@@ -96,27 +105,40 @@ export default function LocationDetailPage() {
             />
 
             <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                    <Button variant="ghost" size="icon" onClick={() => router.back()}>
+                <div className="flex items-center gap-4 flex-1 min-w-0">
+                    <Button variant="ghost" size="icon" onClick={() => router.back()} className="-ml-2">
                         <ArrowLeft className="h-6 w-6" />
                     </Button>
-                    <div>
-                        <h1 className="text-2xl font-bold tracking-tight text-white">{location?.name}</h1>
-                        <p className="text-xs text-muted-foreground uppercase">{location?.type}</p>
-                    </div>
+
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="h-auto px-2 py-1 hover:bg-white/5 data-[state=open]:bg-white/10 flex flex-col items-start gap-1">
+                                <div className="flex items-center gap-2">
+                                    <h1 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
+                                        {location?.name}
+                                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                                    </h1>
+                                </div>
+                                <p className="text-xs text-muted-foreground uppercase tracking-wider">{location?.type}</p>
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start" className="w-56">
+                            <DropdownMenuLabel>View Options</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuCheckboxItem
+                                checked={showNested}
+                                onCheckedChange={setShowNested}
+                            >
+                                Include Sub-locations
+                            </DropdownMenuCheckboxItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 </div>
-                <div className="flex items-center gap-2">
-                    {/* Toggle Button for Nested View */}
-                    <Button
-                        variant={showNested ? "secondary" : "ghost"}
-                        size="sm"
-                        onClick={() => setShowNested(!showNested)}
-                        className="text-xs"
-                    >
-                        {showNested ? "Showing All Nested" : "Direct Items Only"}
-                    </Button>
-                    <Button onClick={openAddDialog} size="sm" className="bg-primary hover:bg-primary/90">
-                        <Plus className="h-4 w-4 mr-2" /> Add Item
+                <div className="flex items-center gap-2 flex-shrink-0">
+                    <Button onClick={openAddDialog} size="sm" className="bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20">
+                        <Plus className="h-4 w-4 sm:mr-2" /> <span className="hidden sm:inline">Add Item</span>
+                        {/* Mobile only icon */}
+                        <span className="sm:hidden">Add</span>
                     </Button>
                 </div>
             </div>
