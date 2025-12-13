@@ -6,12 +6,13 @@ import { ArrowLeft, Box, Search, AlertTriangle, Loader2, Plus, Pencil, Trash2, M
 import { toast } from 'sonner';
 import { processOfflineQueue } from '@/lib/sync-engine';
 import Link from "next/link";
+import { SettingsDialog } from "@/components/settings-dialog";
 
 export default function Home() {
   return (
     <div className="flex flex-col gap-6 pb-24">
       {/* Welcome Section */}
-      <section className="flex flex-col gap-2">
+      <section className="flex items-start justify-between">
         <h1 className="text-3xl font-bold tracking-tight text-foreground">
           {(() => {
             const hour = new Date().getHours();
@@ -20,7 +21,7 @@ export default function Home() {
             return "Good Evening, Joe.";
           })()}
         </h1>
-        {/* Subheader removed as requested */}
+        <SettingsDialog />
       </section>
 
       {/* Quick Actions Grid */}
