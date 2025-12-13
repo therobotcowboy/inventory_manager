@@ -25,7 +25,7 @@ CREATE TABLE locations (
 -- Seed Roots immediately to prevent FK errors when adding items to them
 INSERT INTO locations (id, name, type, is_system_default) VALUES 
   ('11111111-1111-4111-8111-111111111111', 'Home', 'LOCATION', TRUE),
-  ('22222222-2222-4222-8222-222222222222', 'Workshop', 'LOCATION', TRUE),
+  ('22222222-2222-4222-8222-222222222222', 'Warehouse', 'LOCATION', TRUE),
   ('33333333-3333-4333-8333-333333333333', 'Van', 'LOCATION', TRUE);
 
 -- 2. Re-create Items with new fields (V5)

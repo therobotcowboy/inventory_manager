@@ -39,7 +39,7 @@ export async function seedDatabase() {
         console.log("Seeding Local Database...");
         await db.locations.bulkAdd([
             { id: '11111111-1111-4111-8111-111111111111', name: 'Home', type: 'LOCATION', is_system_default: true },
-            { id: '22222222-2222-4222-8222-222222222222', name: 'Workshop', type: 'LOCATION', is_system_default: true },
+            { id: '22222222-2222-4222-8222-222222222222', name: 'Warehouse', type: 'LOCATION', is_system_default: true },
             { id: '33333333-3333-4333-8333-333333333333', name: 'Van', type: 'LOCATION', is_system_default: true },
         ]);
         console.log("Seeding Complete.");

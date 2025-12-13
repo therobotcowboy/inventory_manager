@@ -145,6 +145,19 @@ export default function InventoryView() {
                         </Button>
                     </Link>
                     <h1 className="text-xl font-bold tracking-tight text-white">Inventory</h1>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground/50 hover:text-red-500"
+                        onClick={async () => {
+                            if (confirm("HARD RESET: Wipe all local data and reload? This is for testing only.")) {
+                                await db.delete();
+                                window.location.reload();
+                            }
+                        }}
+                    >
+                        <Trash2 className="h-4 w-4" />
+                    </Button>
                 </div>
                 {/* Context Aware Add Button */}
                 <div className="flex gap-2">
