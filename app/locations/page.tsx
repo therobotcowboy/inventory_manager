@@ -8,16 +8,19 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Plus, Pencil, Trash2, MapPin, FolderOpen } from "lucide-react";
 import Link from "next/link";
 import { LocationDialog } from '@/components/location-dialog';
+import { SwipeableRow } from "@/components/ui/swipeable-row";
 import { Location } from '@/lib/types';
 import { toast } from 'sonner';
 import { processOfflineQueue } from '@/lib/sync-engine';
 
 export default function LocationsPage() {
+    // ... hooks ...
     const locations = useLiveQuery(() => db.locations.toArray());
     const items = useLiveQuery(() => db.items.toArray());
     const [dialogOpen, setDialogOpen] = useState(false);
     const [editingLoc, setEditingLoc] = useState<Location | null>(null);
 
+    // ... handlers ...
     const openAddDialog = () => {
         setEditingLoc(null);
         setDialogOpen(true);
@@ -29,7 +32,7 @@ export default function LocationsPage() {
     };
 
     const handleDelete = async (id: string, name: string) => {
-        // Check if has children
+        // ... existing delete logic ...
         const hasChildren = locations?.some(l => l.parent_id === id);
         if (hasChildren) {
             toast.error("Cannot delete a location with sub-locations.");
@@ -55,20 +58,21 @@ export default function LocationsPage() {
         }
     };
 
-    // Helper to get total items in a location
     const getItemCount = (locationId: string) => {
         return items?.filter(i => i.location_id === locationId).length || 0;
     };
 
-    // Recursive function to render hierarchy
     const renderLocationNode = (loc: Location, level: number = 0) => {
         const children = locations?.filter(l => l.parent_id === loc.id) || [];
         const itemCount = getItemCount(loc.id);
 
         return (
             <div key={loc.id} className="flex flex-col">
-                <Link href={`/locations/${loc.id}`}>
-                    <Card className="mb-2 bg-card border-white/5 hover:bg-card/80 transition-colors cursor-pointer group">
+                <SwipeableRow
+                    onEdit={() => openEditDialog(loc)}
+                    onDelete={() => handleDelete(loc.id, loc.name)}
+                >
+                    <Link href={`/locations/${loc.id}`} className="block h-full cursor-pointer">
                         <CardContent className="p-3 flex items-center justify-between">
                             <div className="flex items-center gap-3" style={{ marginLeft: `${level * 24}px` }}>
                                 {level === 0 ? <MapPin className="h-4 w-4 text-primary group-hover:text-blue-400 transition-colors" /> : <FolderOpen className="h-4 w-4 text-muted-foreground group-hover:text-blue-400 transition-colors" />}
@@ -81,24 +85,15 @@ export default function LocationsPage() {
                                     </div>
                                 </div>
                             </div>
-                            <div className="flex gap-1" onClick={(e) => e.preventDefault()}>
-                                {/* Stop propagation on buttons so we can click Edit/Delete without navigating */}
-                                <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/10" onClick={(e) => { e.stopPropagation(); openEditDialog(loc); }}>
-                                    <Pencil className="h-3 w-3 text-muted-foreground" />
-                                </Button>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/10" onClick={(e) => { e.stopPropagation(); handleDelete(loc.id, loc.name); }}>
-                                    <Trash2 className="h-3 w-3 text-red-400" />
-                                </Button>
-                            </div>
                         </CardContent>
-                    </Card>
-                </Link>
+                    </Link>
+                </SwipeableRow>
                 {children.map(child => renderLocationNode(child, level + 1))}
             </div>
         );
     };
 
-    // Top level nodes
+    // ... rest of render ...
     const topLevelLocations = locations?.filter(l => !l.parent_id) || [];
 
     return (
@@ -119,7 +114,7 @@ export default function LocationsPage() {
                 </Button>
             </div>
 
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-3">
                 {locations?.length === 0 && (
                     <div className="text-center py-12 text-muted-foreground p-8 border border-dashed border-white/10 rounded-lg">
                         <MapPin className="h-10 w-10 mx-auto text-muted-foreground mb-3 opacity-50" />

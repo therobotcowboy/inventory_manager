@@ -12,8 +12,15 @@ export default function Home() {
     <div className="flex flex-col gap-6 pb-24">
       {/* Welcome Section */}
       <section className="flex flex-col gap-2">
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">Good Morning, Joe.</h1>
-        <p className="text-muted-foreground">Ready to track some tools?</p>
+        <h1 className="text-3xl font-bold tracking-tight text-foreground">
+          {(() => {
+            const hour = new Date().getHours();
+            if (hour < 12) return "Good Morning, Joe.";
+            if (hour < 17) return "Good Afternoon, Joe.";
+            return "Good Evening, Joe.";
+          })()}
+        </h1>
+        {/* Subheader removed as requested */}
       </section>
 
       {/* Quick Actions Grid */}

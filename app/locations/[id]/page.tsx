@@ -23,6 +23,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { SwipeableRow } from "@/components/ui/swipeable-row";
 
 export default function LocationDetailPage() {
     const params = useParams();
@@ -178,39 +179,39 @@ export default function LocationDetailPage() {
                     </div>
                 ) : (
                     items.map(item => (
-                        <Card key={item.id} className="bg-card hover:bg-card/80 transition-colors border-white/5">
-                            <CardContent className="p-4 flex items-center justify-between">
-                                <div>
-                                    <div className="font-semibold text-white text-lg">{item.name}</div>
-                                    <div className="flex items-center gap-2 mt-1">
-                                        <Badge variant="secondary" className="text-xs">
-                                            Qty: {item.quantity}
-                                        </Badge>
-                                        {/* Show Location Badge if item is in a sub-location */}
-                                        {showNested && item.location_id !== locationId && (
-                                            <Badge variant="outline" className="text-xs border-blue-500/30 text-blue-400">
-                                                <MapPin className="w-3 h-3 mr-1" />
-                                                In Sub-location
+                        <SwipeableRow
+                            key={item.id}
+                            onEdit={() => openEditDialog(item)}
+                            onDelete={() => handleDelete(item.id, item.name)}
+                        >
+                            <Card className="bg-card hover:bg-card/80 transition-colors border-white/5 rounded-none sm:rounded-lg border-x-0 sm:border-x shadow-none sm:shadow-sm">
+                                <CardContent className="p-4 flex items-center justify-between">
+                                    <div>
+                                        <div className="font-semibold text-white text-lg">{item.name}</div>
+                                        <div className="flex items-center gap-2 mt-1">
+                                            <Badge variant="secondary" className="text-xs">
+                                                Qty: {item.quantity}
                                             </Badge>
-                                        )}
-                                        {item.quantity <= item.low_stock_threshold && (
-                                            <Badge variant="destructive" className="flex gap-1 items-center text-[10px] px-1 h-5">
-                                                <AlertTriangle className="w-3 h-3" /> Low
-                                            </Badge>
-                                        )}
+                                            {/* Show Location Badge if item is in a sub-location */}
+                                            {showNested && item.location_id !== locationId && (
+                                                <Badge variant="outline" className="text-xs border-blue-500/30 text-blue-400">
+                                                    <MapPin className="w-3 h-3 mr-1" />
+                                                    In Sub-location
+                                                </Badge>
+                                            )}
+                                            {item.quantity <= item.low_stock_threshold && (
+                                                <Badge variant="destructive" className="flex gap-1 items-center text-[10px] px-1 h-5">
+                                                    <AlertTriangle className="w-3 h-3" /> Low
+                                                </Badge>
+                                            )}
+                                        </div>
                                     </div>
-                                </div>
-
-                                <div className="flex gap-2">
-                                    <Button variant="ghost" size="icon" onClick={() => openEditDialog(item)}>
-                                        <Pencil className="h-4 w-4 text-muted-foreground hover:text-white" />
-                                    </Button>
-                                    <Button variant="ghost" size="icon" onClick={() => handleDelete(item.id, item.name)}>
-                                        <Trash2 className="h-4 w-4 text-muted-foreground hover:text-red-500" />
-                                    </Button>
-                                </div>
-                            </CardContent>
-                        </Card>
+                                    <div className="text-muted-foreground text-xs italic opacity-0 group-hover:opacity-50 transition-opacity">
+                                        &laquo;
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </SwipeableRow>
                     ))
                 )}
             </div>

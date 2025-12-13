@@ -206,7 +206,7 @@ export function VoiceAgent() {
                         size="lg"
                         className={cn(
                             "h-16 w-16 rounded-full shadow-xl border-4 border-background transition-all duration-300",
-                            "bg-secondary text-secondary-foreground hover:bg-secondary/90"
+                            "bg-orange-500 text-white hover:bg-orange-600"
                         )}
                         onClick={() => document.getElementById('camera-input')?.click()}
                         disabled={isUploading || processing}
