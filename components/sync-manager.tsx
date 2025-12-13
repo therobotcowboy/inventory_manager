@@ -2,10 +2,12 @@
 
 import { useEffect } from 'react';
 import { syncPull, processOfflineQueue } from '@/lib/sync-engine';
+import { seedDatabase } from '@/lib/db';
 
 export function SyncManager() {
     useEffect(() => {
         // Initial Sync on Load
+        seedDatabase(); // Check and seed roots if empty
         syncPull();
         processOfflineQueue();
 

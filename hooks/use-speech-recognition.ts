@@ -18,16 +18,34 @@ export function useSpeechRecognition(): UseSpeechRecognitionReturn {
     // Use a ref to hold the recognition instance
     const recognitionRef = useRef<any>(null);
 
+    // Silence Detection: Auto-stop if no speech for 2 seconds (after initial speech)
+    useEffect(() => {
+        if (!isListening || !transcript) return;
+
+        const timer = setTimeout(() => {
+            if (transcript.length > 0) {
+                // User stopped talking
+                if (recognitionRef.current) {
+                    recognitionRef.current.stop();
+                    setIsListening(false);
+                }
+            }
+        }, 2000); // 2 seconds silence
+
+        return () => clearTimeout(timer);
+    }, [transcript, isListening]);
+
     useEffect(() => {
         if (typeof window !== 'undefined') {
+            // ... (keep existing setup)
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
             if (SpeechRecognition) {
                 setHasSupport(true);
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 recognitionRef.current = new SpeechRecognition();
-                recognitionRef.current.continuous = true; // Keep listening until stopped
-                recognitionRef.current.interimResults = true; // Show results as you speak
+                recognitionRef.current.continuous = true;
+                recognitionRef.current.interimResults = true;
                 recognitionRef.current.lang = 'en-US';
 
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -40,17 +58,16 @@ export function useSpeechRecognition(): UseSpeechRecognitionReturn {
                     setTranscript(currentTranscript);
                 };
 
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                // ... (keep onerror/onend)
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 recognitionRef.current.onerror = (event: any) => {
                     console.error('Speech recognition error', event.error);
                     if (event.error === 'not-allowed') {
-                        toast.error("Microphone access denied. Please enable permission.");
+                        toast.error("Microphone access denied.");
                     } else if (event.error === 'no-speech') {
-                        // failing silently is sometimes better for no-speech, but for debugging:
-                        // toast.warning("No speech detected.");
+                        // ignore
                     } else {
-                        toast.error(`Mic Error: ${event.error}`);
+                        // toast.error(`Mic Error: ${event.error}`); // Suppress loud errors
                     }
                     setIsListening(false);
                 };

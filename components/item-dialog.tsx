@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { InventoryService } from '@/lib/inventory-service';
 import { Item } from '@/lib/types';
 import { toast } from 'sonner';
+import { SmartError } from '@/components/ui/smart-error';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/lib/db';
 import { Loader2 } from 'lucide-react';
@@ -31,6 +32,11 @@ interface ItemDialogProps {
 export function ItemDialog({ open, onOpenChange, initialItem, defaultLocationId }: ItemDialogProps) {
     const [name, setName] = useState('');
     const [quantity, setQuantity] = useState(0);
+    const [itemType, setItemType] = useState<Item['item_type']>('Part');
+    const [lowStockThreshold, setLowStockThreshold] = useState<number>(5);
+    const [baseUnit, setBaseUnit] = useState('Ea');
+    const [purchaseUnit, setPurchaseUnit] = useState('');
+    const [conversionRate, setConversionRate] = useState(1);
     const [locationId, setLocationId] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
 
@@ -43,10 +49,20 @@ export function ItemDialog({ open, onOpenChange, initialItem, defaultLocationId 
             if (initialItem) {
                 setName(initialItem.name);
                 setQuantity(initialItem.quantity);
+                setItemType(initialItem.item_type || 'Part');
+                setLowStockThreshold(initialItem.low_stock_threshold || 5);
+                setBaseUnit(initialItem.base_unit || 'Ea');
+                setPurchaseUnit(initialItem.purchase_unit || '');
+                setConversionRate(initialItem.conversion_rate || 1);
                 setLocationId(initialItem.location_id || null);
             } else {
                 setName('');
                 setQuantity(0);
+                setItemType('Part');
+                setLowStockThreshold(5);
+                setBaseUnit('Ea');
+                setPurchaseUnit('');
+                setConversionRate(1);
                 setLocationId(defaultLocationId || null);
             }
         }
@@ -65,7 +81,12 @@ export function ItemDialog({ open, onOpenChange, initialItem, defaultLocationId 
                 await InventoryService.updateItem(initialItem.id, {
                     name: name.trim(),
                     quantity: Number(quantity),
-                    location_id: locationId || undefined
+                    item_type: itemType,
+                    low_stock_threshold: (itemType === 'Part' || itemType === 'Consumable') ? lowStockThreshold : undefined,
+                    location_id: locationId || undefined,
+                    base_unit: baseUnit,
+                    purchase_unit: purchaseUnit,
+                    conversion_rate: conversionRate
                 });
                 toast.success("Item updated");
             } else {
@@ -73,9 +94,12 @@ export function ItemDialog({ open, onOpenChange, initialItem, defaultLocationId 
                 await InventoryService.addItem({
                     name: name.trim(),
                     quantity: Number(quantity),
-                    low_stock_threshold: 5,
-                    category: 'Uncategorized',
-                    location_id: locationId || undefined
+                    item_type: itemType,
+                    low_stock_threshold: (itemType === 'Part' || itemType === 'Consumable') ? lowStockThreshold : undefined,
+                    location_id: locationId || undefined,
+                    base_unit: baseUnit,
+                    purchase_unit: purchaseUnit,
+                    conversion_rate: conversionRate
                 });
                 toast.success("Item added");
             }
@@ -84,7 +108,7 @@ export function ItemDialog({ open, onOpenChange, initialItem, defaultLocationId 
             onOpenChange(false);
         } catch (error) {
             console.error(error);
-            toast.error("Failed to save item");
+            SmartError.show("Failed to save item", error);
         } finally {
             setLoading(false);
         }
@@ -106,6 +130,22 @@ export function ItemDialog({ open, onOpenChange, initialItem, defaultLocationId 
 
                 <div className="flex-1 overflow-y-auto py-6">
                     <div className="grid gap-8">
+                        {/* Type Select */}
+                        <div className="grid gap-2">
+                            <Label htmlFor="type" className="px-6 text-xs font-bold uppercase text-muted-foreground tracking-widest">Item Type</Label>
+                            <Select value={itemType} onValueChange={(v: any) => setItemType(v)}>
+                                <SelectTrigger className="text-lg h-16 px-6 rounded-none border-x-0 border-t-0 border-b border-border/50 bg-secondary/5 focus:ring-0 shadow-none">
+                                    <SelectValue placeholder="Select Type" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="Tool">Tool</SelectItem>
+                                    <SelectItem value="Part">Part (Track Low Stock)</SelectItem>
+                                    <SelectItem value="Consumable">Consumable (Track Low Stock)</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        {/* Name Input */}
                         <div className="grid gap-2">
                             <Label htmlFor="name" className="px-6 text-xs font-bold uppercase text-muted-foreground tracking-widest">
                                 Name
@@ -118,21 +158,97 @@ export function ItemDialog({ open, onOpenChange, initialItem, defaultLocationId 
                                 placeholder="e.g. 1/2in Screws"
                             />
                         </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="quantity" className="px-6 text-xs font-bold uppercase text-muted-foreground tracking-widest">
-                                Quantity
-                            </Label>
-                            <Input
-                                id="quantity"
-                                type="number"
-                                inputMode="numeric"
-                                pattern="[0-9]*"
-                                value={quantity === 0 ? '' : quantity.toString()}
-                                onChange={(e) => setQuantity(Number(e.target.value))}
-                                className="text-lg h-16 px-6 rounded-none border-x-0 border-t-0 border-b border-border/50 bg-secondary/5 focus-visible:ring-0 focus-visible:bg-secondary/10 transition-colors"
-                            />
-                        </div>
 
+                        {/* UOM Settings (Parts/Consumables) */}
+                        {(itemType === 'Part' || itemType === 'Consumable') && (
+                            <div className="grid gap-2 animate-in slide-in-from-top-2">
+                                <Label className="px-6 text-xs font-bold uppercase text-muted-foreground tracking-widest">Unit of Measure</Label>
+                                <div className="grid grid-cols-2 gap-4 px-6">
+                                    <div className="grid gap-1">
+                                        <Label htmlFor="base-unit" className="text-[10px] text-muted-foreground">Base Unit (e.g. Screw)</Label>
+                                        <Input
+                                            id="base-unit"
+                                            value={baseUnit}
+                                            onChange={(e) => setBaseUnit(e.target.value)}
+                                            className="bg-secondary/5 border-border/50"
+                                            placeholder="Ea"
+                                        />
+                                    </div>
+                                    <div className="grid gap-1">
+                                        <Label htmlFor="purchase-unit" className="text-[10px] text-muted-foreground">Purchase Unit (e.g. Box)</Label>
+                                        <Input
+                                            id="purchase-unit"
+                                            value={purchaseUnit}
+                                            onChange={(e) => setPurchaseUnit(e.target.value)}
+                                            className="bg-secondary/5 border-border/50"
+                                            placeholder="Box"
+                                        />
+                                    </div>
+                                    <div className="col-span-2 grid gap-1">
+                                        <Label htmlFor="conversion" className="text-[10px] text-muted-foreground">Rate (1 Purchase Unit = ? Base Units)</Label>
+                                        <Input
+                                            id="conversion"
+                                            type="number"
+                                            value={conversionRate}
+                                            onChange={(e) => setConversionRate(Number(e.target.value))}
+                                            className="bg-secondary/5 border-border/50"
+                                            placeholder="1"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Quantity (Hidden if Asset) */}
+                        {itemType !== 'Tool' && (
+                            <div className="grid gap-2">
+                                <Label htmlFor="quantity" className="px-6 text-xs font-bold uppercase text-muted-foreground tracking-widest">
+                                    Quantity ({baseUnit})
+                                </Label>
+                                <Input
+                                    id="quantity"
+                                    type="number"
+                                    inputMode="numeric"
+                                    pattern="[0-9]*"
+                                    value={quantity === 0 ? '' : quantity.toString()}
+                                    onChange={(e) => setQuantity(Number(e.target.value))}
+                                    className="text-lg h-16 px-6 rounded-none border-x-0 border-t-0 border-b border-border/50 bg-secondary/5 focus-visible:ring-0 focus-visible:bg-secondary/10 transition-colors"
+                                />
+                                {purchaseUnit && conversionRate > 1 && (
+                                    <div className="px-6 text-xs text-muted-foreground">
+                                        Approx {Math.floor(quantity / conversionRate)} {purchaseUnit}s
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Auto-Quantity Message for Assets */}
+                        {itemType === 'Tool' && (
+                            <div className="px-6 py-2 bg-secondary/10 text-sm text-muted-foreground">
+                                Assets are tracked individually (Qty = 1).
+                            </div>
+                        )}
+
+                        {/* Low Stock Threshold (Conditional) */}
+                        {(itemType === 'Part' || itemType === 'Consumable') && (
+                            <div className="grid gap-2 animate-in slide-in-from-top-2 mt-4">
+                                <Label htmlFor="threshold" className="px-6 text-xs font-bold uppercase text-destructive tracking-widest">
+                                    Low Stock Warning At
+                                </Label>
+                                <div className="flex items-center px-6 gap-4">
+                                    <Input
+                                        id="threshold"
+                                        type="number"
+                                        value={lowStockThreshold || ''}
+                                        onChange={(e) => setLowStockThreshold(Number(e.target.value))}
+                                        placeholder="Default: 5"
+                                        className="text-lg h-16 rounded-none border-x-0 border-t-0 border-b border-border/50 bg-destructive/5 focus-visible:ring-0 focus-visible:bg-destructive/10 transition-colors flex-1"
+                                    />
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Location Select (Filtered) */}
                         <div className="grid gap-2">
                             <Label htmlFor="location" className="px-6 text-xs font-bold uppercase text-muted-foreground tracking-widest">Location</Label>
                             <Select value={locationId || "unassigned"} onValueChange={(v: string) => setLocationId(v === "unassigned" ? null : v)}>
@@ -141,11 +257,16 @@ export function ItemDialog({ open, onOpenChange, initialItem, defaultLocationId 
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="unassigned">Unassigned</SelectItem>
-                                    {locations?.map(loc => (
+                                    <SelectItem disabled value="separator" className="text-xs font-bold opacity-50 pl-2">-- Containers & Areas --</SelectItem>
+                                    {locations?.filter(l => l.type === 'AREA' || l.type === 'CONTAINER').map(loc => (
                                         <SelectItem key={loc.id} value={loc.id}>
-                                            {loc.name}
+                                            <div className="flex items-center gap-2">
+                                                <span>{loc.name}</span>
+                                                <span className="text-[10px] bg-muted px-1.5 rounded">{loc.type}</span>
+                                            </div>
                                         </SelectItem>
                                     ))}
+                                    {/* Optional: Show roots disabled or at bottom if needed, but diagram implies strict nesting */}
                                 </SelectContent>
                             </Select>
                         </div>

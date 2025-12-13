@@ -1,31 +1,60 @@
 export type ItemType = 'Tool' | 'Part' | 'Consumable';
 export type UnitOfMeasure = 'Ea' | 'Box' | 'Roll' | 'Gal' | 'Ft' | 'Lb';
-export type LocationType = 'Vehicle' | 'Warehouse' | 'Bin' | 'ToolBag' | 'JobSite';
+export type LocationType = 'ROOT' | 'LOCATION' | 'AREA' | 'CONTAINER';
 
-export interface InventoryItem {
+export interface Location {
   id: string; // UUID
-  name: string;
-  description?: string;
-  model_number?: string;
-  type: ItemType;
-  unit_of_measure: UnitOfMeasure;
-  min_qty_alert: number;
-  image_url?: string;
-  // In a real relational DB, qty is in a tracking table. 
-  // For the App State/Offline View, we often denormalize "current qty" here 
-  // or store it in a separate linked object. 
-  // We'll keep it simple for the MVP interface:
-  current_qty: number;
-  location_id: string;
-  updated_at: string;
-}
-
-export interface InventoryLocation {
-  id: string;
   name: string;
   type: LocationType;
   parent_id?: string;
+  is_system_default?: boolean;
 }
+
+
+export interface Item {
+  id: string; // UUID
+  name: string;
+  description?: string;
+  item_type: ItemType;
+  is_asset?: boolean; // New in V5
+
+  quantity: number;
+
+  // UOM Logic (New V5)
+  base_unit: string; // Defaults to 'Ea'
+  purchase_unit?: string;
+  conversion_rate?: number; // Defaults to 1
+
+  location_id?: string; // Should reference a Container or Area
+  low_stock_threshold?: number; // Only for Parts/Consumables
+  image_url?: string;
+
+  // Search
+  tags?: string[];
+  brand?: string;
+
+  updated_at: string;
+}
+
+export type TransactionType = 'RESTOCK' | 'JOB_USAGE' | 'LOSS' | 'ADJUSTMENT' | 'INITIAL_STOCK' | 'PURCHASE';
+
+export interface InventoryTransaction {
+  id: string;
+  item_id?: string;
+  change_amount: number;
+  transaction_type: TransactionType;
+  job_reference?: string;
+  timestamp: string;
+}
+// Alias for backward compatibility if needed, or just replace
+export type AuditLog = InventoryTransaction;
+
+
+// Deprecated or Legacy interfaces - consolidate if possible
+// For now, removing `InventoryItem` and `InventoryLocation` in favor of the cleaner `Item` and `Location` above
+// or aliasing them if codebase heavily uses them.
+export type InventoryItem = Item;
+export type InventoryLocation = Location;
 
 export interface JobRecommendation {
   id: string;
@@ -33,7 +62,6 @@ export interface JobRecommendation {
   required_items: {
     item_name: string;
     qty_needed: number;
-    // We might match this to an inventory ID if known
     inventory_id?: string;
   }[];
 }
@@ -45,37 +73,22 @@ export interface ParsedVoiceCommand {
   type: VoiceCommandType;
   item: string;
   quantity?: number;
+  unit?: string; // New: e.g. "Box", "Pack"
   location?: string; // For ADD/QUERY (Target location)
   fromLocation?: string; // For MOVE (Source)
   toLocation?: string; // For MOVE (Destination)
+  job_reference?: string; // New: e.g. "Smith House"
+
+  // Ambiguity / Chat Flow
+  requires_clarification?: boolean;
+  clarification_question?: string; // "Did you mean Wood or Drywall screws?"
+
   originalTranscript: string;
   confidence: number;
 }
 
-export interface Location {
-  id: string; // UUID
-  name: string;
-  type: 'VAN' | 'SHELF' | 'BIN' | 'JOB_SITE';
-  parent_id?: string;
-}
 
-export interface Item {
-  id: string; // UUID
-  name: string;
-  quantity: number;
-  location_id?: string;
-  category?: string;
-  low_stock_threshold: number;
-  updated_at: string;
-}
 
-export interface AuditLog {
-  id: string;
-  item_id?: string;
-  action: string;
-  quantity_change?: number;
-  voice_transcript?: string;
-  timestamp: string;
-}
+
 
 // Check lib/db.ts for Dexie specific types

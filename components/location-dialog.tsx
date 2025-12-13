@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Location } from '@/lib/types';
 import { toast } from 'sonner';
+import { SmartError } from '@/components/ui/smart-error';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/lib/db';
 import { Loader2 } from 'lucide-react';
@@ -25,11 +26,12 @@ interface LocationDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     initialLocation?: Location | null;
+    defaultParentId?: string | null;
 }
 
-export function LocationDialog({ open, onOpenChange, initialLocation }: LocationDialogProps) {
+export function LocationDialog({ open, onOpenChange, initialLocation, defaultParentId }: LocationDialogProps) {
     const [name, setName] = useState('');
-    const [type, setType] = useState<Location['type']>('VAN');
+    const [type, setType] = useState<Location['type']>('LOCATION');
     const [parentId, setParentId] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
 
@@ -44,11 +46,42 @@ export function LocationDialog({ open, onOpenChange, initialLocation }: Location
                 setParentId(initialLocation.parent_id || null);
             } else {
                 setName('');
-                setType('VAN');
-                setParentId(null);
+                // If defaultParentId is provided, we should set it and infer type
+                if (defaultParentId) {
+                    setParentId(defaultParentId);
+                    // We need to look up parent type to set our type correctly.
+                    // But we can't easily await here in render.
+                    // The useEffect below or user selection handles it, but initial state is tricky.
+                    // Let's rely on the Select's onChange logic? No, we need initial state.
+                    // We can use a side-effect live query or just default to basic logic.
+                    // Actually, if we set parentId, we should try to set Type.
+                    // Better: The Select component logic I wrote uses `locations` find.
+                    // We can reuse that if `locations` is loaded.
+                } else {
+                    setParentId(null);
+                    setType('LOCATION');
+                }
             }
         }
-    }, [open, initialLocation]);
+    }, [open, initialLocation, defaultParentId]);
+
+    // Enhanced Effect: When parentId changes (including on init), infer Type if locations loaded
+    useEffect(() => {
+        if (!locations) return;
+        if (initialLocation) return; // Don't override if editing
+
+        if (parentId) {
+            const parent = locations.find(l => l.id === parentId);
+            if (parent) {
+                if (parent.type === 'LOCATION') setType('AREA');
+                else if (parent.type === 'AREA') setType('CONTAINER');
+                else setType('CONTAINER');
+            }
+        } else {
+            // Only force type if we explicitly set parent to null and we are adding new
+            if (!initialLocation) setType('LOCATION');
+        }
+    }, [parentId, locations, initialLocation]);
 
     const handleSave = async () => {
         if (!name.trim()) {
@@ -91,7 +124,7 @@ export function LocationDialog({ open, onOpenChange, initialLocation }: Location
             onOpenChange(false);
         } catch (error) {
             console.error(error);
-            toast.error("Failed to save location");
+            SmartError.show("Failed to save location", error);
         } finally {
             setLoading(false);
         }
@@ -128,38 +161,60 @@ export function LocationDialog({ open, onOpenChange, initialLocation }: Location
                             />
                         </div>
 
-                        {/* Type Select */}
-                        <div className="grid gap-2">
-                            <Label htmlFor="type" className="px-6 text-xs font-bold uppercase text-muted-foreground tracking-widest">Type</Label>
-                            <Select value={type} onValueChange={(v: string) => setType(v as any)}>
-                                <SelectTrigger className="text-lg h-16 px-6 rounded-none border-x-0 border-t-0 border-b border-border/50 bg-secondary/5 focus:ring-0 shadow-none">
-                                    <SelectValue placeholder="Select Type" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="VAN">Van / Vehicle</SelectItem>
-                                    <SelectItem value="SHELF">Shelf / Rack</SelectItem>
-                                    <SelectItem value="BIN">Bin / Box</SelectItem>
-                                    <SelectItem value="JOB_SITE">Job Site</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-
                         {/* Parent Select */}
                         <div className="grid gap-2">
-                            <Label htmlFor="parent" className="px-6 text-xs font-bold uppercase text-muted-foreground tracking-widest">Parent Location (Optional)</Label>
-                            <Select value={parentId || "none"} onValueChange={(v: string) => setParentId(v === "none" ? null : v)}>
+                            <Label htmlFor="parent" className="px-6 text-xs font-bold uppercase text-muted-foreground tracking-widest">Parent Location</Label>
+                            <Select
+                                value={parentId || "none"}
+                                onValueChange={(v: string) => {
+                                    const pid = v === "none" ? null : v;
+                                    setParentId(pid);
+
+                                    // Auto-assign Type based on Parent
+                                    if (!pid) {
+                                        setType('LOCATION'); // Root
+                                    } else {
+                                        const parent = locations?.find(l => l.id === pid);
+                                        if (parent?.type === 'LOCATION') setType('AREA');
+                                        else if (parent?.type === 'AREA') setType('CONTAINER');
+                                        else setType('CONTAINER'); // Fallback
+                                    }
+                                }}
+                            >
                                 <SelectTrigger className="text-lg h-16 px-6 rounded-none border-x-0 border-t-0 border-b border-border/50 bg-secondary/5 focus:ring-0 shadow-none">
-                                    <SelectValue placeholder="None (Top Level)" />
+                                    <SelectValue placeholder="Select Parent" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="none">None (Top Level)</SelectItem>
+                                    <SelectItem value="none">
+                                        <div className="flex flex-col items-start">
+                                            <span className="font-semibold">No Parent (New Root Location)</span>
+                                            <span className="text-xs text-muted-foreground">Creates a top-level location like "Home" or "Van"</span>
+                                        </div>
+                                    </SelectItem>
                                     {availableParents.map(loc => (
-                                        <SelectItem key={loc.id} value={loc.id}>
-                                            {loc.name} <span className="text-muted-foreground text-xs ml-2">({loc.type})</span>
+                                        <SelectItem key={loc.id} value={loc.id} disabled={loc.type === 'CONTAINER'}>
+                                            <div className="flex items-center gap-2">
+                                                <span>{loc.name}</span>
+                                                <span className={`text-[10px] px-1.5 py-0.5 rounded-full uppercase font-bold tracking-wider 
+                                                    ${loc.type === 'LOCATION' ? 'bg-blue-500/10 text-blue-500' : ''}
+                                                    ${loc.type === 'AREA' ? 'bg-orange-500/10 text-orange-500' : ''}
+                                                    ${loc.type === 'CONTAINER' ? 'bg-red-500/10 text-red-500' : ''}
+                                                `}>
+                                                    {loc.type}
+                                                </span>
+                                            </div>
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
+                        </div>
+
+                        {/* Read-Only Type Display */}
+                        <div className="px-6 py-2 bg-muted/20 rounded border border-dashed border-border/50">
+                            <p className="text-sm text-muted-foreground">
+                                This will create a <span className="font-bold text-foreground">{type}</span>
+                                {parentId ? ` inside selected parent.` : ` at the top level.`}
+                            </p>
                         </div>
                     </div>
                 </div>
