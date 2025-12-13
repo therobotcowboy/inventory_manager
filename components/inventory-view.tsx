@@ -19,6 +19,7 @@ import { processOfflineQueue } from '@/lib/sync-engine';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { LocationView } from '@/components/hierarchy/location-view';
 import { SmartError } from "@/components/ui/smart-error";
+import { SettingsDialog } from "@/components/settings-dialog";
 
 export default function InventoryView() {
     const router = useRouter();
@@ -145,22 +146,10 @@ export default function InventoryView() {
                         </Button>
                     </Link>
                     <h1 className="text-xl font-bold tracking-tight text-white">Inventory</h1>
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-muted-foreground/50 hover:text-red-500"
-                        onClick={async () => {
-                            if (confirm("HARD RESET: Wipe all local data and reload? This is for testing only.")) {
-                                await db.delete();
-                                window.location.reload();
-                            }
-                        }}
-                    >
-                        <Trash2 className="h-4 w-4" />
-                    </Button>
                 </div>
                 {/* Context Aware Add Button */}
-                <div className="flex gap-2">
+                <div className="flex gap-2 items-center">
+                    <SettingsDialog />
                     {/* Debug: Show current location type if exists */}
                     {/* <div className="text-[10px] text-muted-foreground mr-2">{currentLocation?.type || 'ROOT'}</div> */}
 
