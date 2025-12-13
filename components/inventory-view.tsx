@@ -149,7 +149,6 @@ export default function InventoryView() {
                 </div>
                 {/* Context Aware Add Button */}
                 <div className="flex gap-2 items-center">
-                    <SettingsDialog />
                     {/* Debug: Show current location type if exists */}
                     {/* <div className="text-[10px] text-muted-foreground mr-2">{currentLocation?.type || 'ROOT'}</div> */}
 
