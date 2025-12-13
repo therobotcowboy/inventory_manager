@@ -284,7 +284,13 @@ export function VoiceAgent() {
                             )} />
                             Joe's Agent
                         </span>
-                        <Button size="icon" variant="ghost" onClick={() => setIsDialogOpen(false)} className="h-12 w-12 rounded-full hover:bg-secondary/20">
+                        <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => setIsDialogOpen(false)}
+                            className="h-12 w-12 rounded-full hover:bg-secondary/20"
+                            aria-label="Close Voice Agent"
+                        >
                             <X className="h-6 w-6" />
                         </Button>
                     </div>
@@ -352,17 +358,18 @@ export function VoiceAgent() {
                             value={inputValue}
                             onChange={e => setInputValue(e.target.value)}
                             placeholder="Type a message..."
-                            className="bg-secondary/10 border-0 focus-visible:ring-1 focus-visible:ring-primary/20 min-h-[44px] py-3 rounded-xl"
+                            className="bg-secondary/20 border border-white/10 focus-visible:ring-1 focus-visible:ring-primary/50 min-h-[44px] py-3 rounded-xl placeholder:text-muted-foreground/70"
                             onKeyDown={e => {
                                 if (e.key === 'Enter') handleProcess();
                             }}
+                            aria-label="Voice Agent Input"
                         />
                         {inputValue ? (
-                            <Button size="icon" onClick={() => handleProcess()} className="shrink-0 h-11 w-11 rounded-xl">
+                            <Button size="icon" onClick={() => handleProcess()} className="shrink-0 h-11 w-11 rounded-xl" aria-label="Send Message">
                                 <Check className="w-5 h-5" />
                             </Button>
                         ) : (
-                            <Button size="icon" variant={isListening ? "destructive" : "secondary"} onClick={handleMicClick} className="shrink-0 h-11 w-11 rounded-xl">
+                            <Button size="icon" variant={isListening ? "destructive" : "secondary"} onClick={handleMicClick} className="shrink-0 h-11 w-11 rounded-xl" aria-label={isListening ? "Stop Recording" : "Start Recording"}>
                                 {isListening ? <Square className="w-5 h-5 fill-current" /> : <Mic className="w-5 h-5" />}
                             </Button>
                         )}
