@@ -48,9 +48,11 @@ While the core logic passed, the automated agent encountered minor friction poin
 
 Although no critical bugs were found, we will polish the UI based on findings.
 
-### Task 1: Improve Modal Accessibility
+### Task 1: Improve Modal Accessibility (COMPLETED)
 - **Objective**: Ensure the Voice Agent 'Close' button is easily clickable and accessible.
-- **Action**: Increase touch target size of the 'X' button and ensure it has a distinct `aria-label="Close Voice Agent"`.
+- **Action**: Increased touch target size of the 'X' button and added a distinct `aria-label="Close Voice Agent"`.
+- **Status**: **Fixed** in commit `ff1c4dd`.
 
 ### Task 2: Verify Data Cleanup (Manual)
-- **Objective**: Use the "Delete" function to remove the test data ("Test Screws", "Verification Bin") to keep production clean.
+- **Objective**: User to manually delete the test data ("Test Screws", "Verification Bin") to keep production clean.
+- **Status**: **Pending User Action**
