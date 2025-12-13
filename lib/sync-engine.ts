@@ -47,9 +47,18 @@ export async function processOfflineQueue(): Promise<number> {
             await db.offlineQueue.update(action.id, { synced: true });
             toast.success("Synced to Cloud");
 
-        } catch (error) {
+        } catch (error: any) {
             console.error("Sync Error for action", action.id, error);
-            toast.error(`Sync Failed: ${(error as any).message || 'Unknown error'}`);
+
+            // Check for unrecoverable errors (Constraint violations)
+            const msg = error.message || '';
+            if (msg.includes("violates check constraint") || msg.includes("violates foreign key constraint") || msg.includes("duplicate key value")) {
+                console.warn("Unrecoverable data error. Discarding action.", action);
+                await db.offlineQueue.delete(action.id);
+                toast.error(`Sync Skipped: Invalid data discarded. (${msg})`);
+            } else {
+                toast.error(`Sync Failed: ${msg || 'Unknown error'}`);
+            }
         }
     }
     return queue.length;

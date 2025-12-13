@@ -221,7 +221,7 @@ export function VoiceAgent() {
     return (
         <>
             {/* LEFT SIDE: Camera Button */}
-            <div className="fixed bottom-6 left-6 z-50 flex flex-col items-start gap-2 pointer-events-none">
+            <div className="fixed bottom-6 left-6 z-50 flex flex-col items-start gap-2 pointer-events-none pb-[env(safe-area-inset-bottom)]">
                 {/* Uploading State Badge */}
                 {isUploading && (
                     <div className="bg-card border border-border text-card-foreground px-4 py-2 rounded-lg mb-2 text-sm shadow animate-in fade-in slide-in-from-bottom-2 font-medium">
@@ -254,7 +254,7 @@ export function VoiceAgent() {
             </div>
 
             {/* RIGHT SIDE: Mic Button & Status */}
-            <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-4 pointer-events-none">
+            <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-4 pointer-events-none pb-[env(safe-area-inset-bottom)]">
                 <div className="pointer-events-auto">
                     <Button
                         size="lg"
@@ -272,11 +272,11 @@ export function VoiceAgent() {
             {/* CHAT OVERLAY */}
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                 <DialogContent
-                    className="fixed z-[100] gap-0 p-0 bg-background w-screen h-screen max-w-none max-h-none m-0 rounded-none border-none flex flex-col overflow-hidden data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-200"
+                    className="fixed z-[100] gap-0 p-0 bg-background w-screen h-[100dvh] max-w-none max-h-none m-0 rounded-none border-none flex flex-col overflow-hidden data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-200"
                     onOpenAutoFocus={e => e.preventDefault()}
                 >
                     {/* HEADER */}
-                    <div className="p-6 bg-background/80 backdrop-blur-md border-b border-border flex items-center justify-between shrink-0 sticky top-0 z-10">
+                    <div className="p-6 bg-background/80 backdrop-blur-md border-b border-border flex items-center justify-between shrink-0 sticky top-0 z-10 pt-[max(1.5rem,env(safe-area-inset-top))]">
                         <span className="font-semibold text-2xl flex items-center gap-3">
                             <span className={cn(
                                 "w-3 h-3 rounded-full transition-colors duration-500",
@@ -297,7 +297,7 @@ export function VoiceAgent() {
 
                     {/* LISTEN OVERLAY (When listening) */}
                     {isListening && (
-                        <div className="absolute top-20 left-0 w-full flex justify-center pointer-events-none z-0">
+                        <div className="absolute top-32 left-0 w-full flex justify-center pointer-events-none z-0">
                             <div className="flex gap-1 h-12 items-end">
                                 {[...Array(5)].map((_, i) => (
                                     <div key={i} className="w-2 bg-primary/20 rounded-full animate-bounce" style={{
@@ -353,7 +353,7 @@ export function VoiceAgent() {
                     </div>
 
                     {/* INPUT AREA */}
-                    <div className="p-4 bg-background border-t border-border mt-auto shrink-0 flex gap-2 items-end">
+                    <div className="p-4 bg-background border-t border-border mt-auto shrink-0 flex gap-2 items-end pb-[max(1rem,env(safe-area-inset-bottom))]">
                         <Input
                             value={inputValue}
                             onChange={e => setInputValue(e.target.value)}
