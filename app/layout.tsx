@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { SyncManager } from "@/components/sync-manager";
+import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from 'sonner';
 import { Nunito_Sans } from "next/font/google";
 import "./globals.css";
@@ -22,23 +23,28 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
-      {/* Forcing .dark class here for the Industrial Dark Mode preference */}
+    <html lang="en" suppressHydrationWarning>
       <body
         className={cn(
           "min-h-screen bg-background font-sans antialiased text-foreground",
           fontSans.variable
         )}
       >
-        <SyncManager />
-        <Toaster richColors position="bottom-center" toastOptions={{
-          className: 'mb-12 shadow-lg border-border/20 rounded-full px-6' // Add some custom styling to make it "float" nicely above the bottom nav/mic
-        }} />
-        <main className="max-w-md mx-auto min-h-screen p-6 relative shadow-2xl bg-background border-x border-border/10 pb-32">
-          {/* We limit max-width to mobile size for the 'pwa' feel on desktop too */}
-          {children}
-          <VoiceAgent />
-        </main>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <SyncManager />
+          <Toaster richColors position="bottom-center" toastOptions={{
+            className: 'mb-12 shadow-lg border-border/20 rounded-full px-6'
+          }} />
+          <main className="max-w-md mx-auto min-h-screen p-6 relative shadow-2xl bg-background border-x border-border/10 pb-32">
+            {children}
+            <VoiceAgent />
+          </main>
+        </ThemeProvider>
       </body>
     </html>
   );

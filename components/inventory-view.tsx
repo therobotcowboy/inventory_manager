@@ -145,7 +145,7 @@ export default function InventoryView() {
                             <Home className="h-6 w-6" />
                         </Button>
                     </Link>
-                    <h1 className="text-xl font-bold tracking-tight text-white">Inventory</h1>
+                    <h1 className="text-xl font-bold tracking-tight text-foreground">Inventory</h1>
                 </div>
                 {/* Context Aware Add Button */}
                 <div className="flex gap-2 items-center">
@@ -172,12 +172,12 @@ export default function InventoryView() {
             </div>
 
             {/* Sticky Search Bar */}
-            <div className="sticky top-0 z-40 bg-background py-2 -mx-4 px-4 border-b border-white/5 shadow-sm space-y-2">
+            <div className="sticky top-0 z-40 bg-background py-2 -mx-4 px-4 border-b border-border shadow-sm space-y-2">
                 <div className="relative">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                     <Input
                         placeholder="Search items..."
-                        className="pl-12 h-12 text-lg bg-secondary/10 border-white/10 focus-visible:ring-primary/50"
+                        className="pl-12 h-12 text-lg bg-secondary/20 border-border focus-visible:ring-primary/50"
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                     />
@@ -240,10 +240,10 @@ export default function InventoryView() {
                                     onClick={() => item.location_id && handleNavigate(item.location_id)}
                                 >
                                     <div>
-                                        <div className="font-semibold text-white text-lg">{item.name}</div>
+                                        <div className="font-semibold text-foreground text-lg">{item.name}</div>
                                         <div className="flex items-center gap-2 mt-1">
                                             <Badge variant="secondary" className="text-xs">Qty: {item.quantity}</Badge>
-                                            <Badge variant="outline" className="text-xs border-white/10 text-muted-foreground flex items-center gap-1 hover:text-white hover:border-white/30 transition-colors">
+                                            <Badge variant="outline" className="text-xs border-border text-muted-foreground flex items-center gap-1 hover:text-foreground hover:border-primary/30 transition-colors">
                                                 {getLocationName(item.location_id)} <ChevronRight className="h-3 w-3" />
                                             </Badge>
                                         </div>

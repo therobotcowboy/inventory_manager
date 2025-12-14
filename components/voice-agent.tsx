@@ -242,8 +242,8 @@ export function VoiceAgent() {
                     <Button
                         size="lg"
                         className={cn(
-                            "h-16 w-16 rounded-full shadow-xl border-4 border-background transition-all duration-300",
-                            "bg-orange-500 text-white hover:bg-orange-600"
+                            "h-16 w-16 rounded-full shadow-xl border-4 border-background transition-all duration-300 border-border",
+                            "bg-orange-500 text-white hover:bg-orange-600 border-border"
                         )}
                         onClick={() => document.getElementById('camera-input')?.click()}
                         disabled={isUploading || processing}
@@ -260,7 +260,7 @@ export function VoiceAgent() {
                         size="lg"
                         onClick={handleMicClick}
                         className={cn(
-                            "h-16 w-16 rounded-full shadow-xl border-4 border-background transition-all duration-300",
+                            "h-16 w-16 rounded-full shadow-xl border-4 border-background transition-all duration-300 border-border",
                             isListening ? "bg-red-500 hover:bg-red-600 animate-pulse" : "bg-primary hover:bg-primary/90"
                         )}
                     >
@@ -358,7 +358,7 @@ export function VoiceAgent() {
                             value={inputValue}
                             onChange={e => setInputValue(e.target.value)}
                             placeholder="Type a message..."
-                            className="bg-secondary/20 border border-white/10 focus-visible:ring-1 focus-visible:ring-primary/50 min-h-[44px] py-3 rounded-xl placeholder:text-muted-foreground/70"
+                            className="bg-secondary/20 border border-border focus-visible:ring-1 focus-visible:ring-primary/50 min-h-[44px] py-3 rounded-xl placeholder:text-muted-foreground/70"
                             onKeyDown={e => {
                                 if (e.key === 'Enter') handleProcess();
                             }}

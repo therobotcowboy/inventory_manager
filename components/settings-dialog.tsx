@@ -42,12 +42,12 @@ export function SettingsDialog() {
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-white">
+                <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-foreground">
                     <Settings className="h-5 w-5" />
                 </Button>
             </DialogTrigger>
             <DialogContent className="max-w-sm rounded-2xl gap-0 p-0 overflow-hidden bg-background border-border">
-                <DialogHeader className="p-6 pb-4 border-b border-border/50 bg-secondary/5">
+                <DialogHeader className="p-6 pb-4 border-b border-border bg-muted/40">
                     <DialogTitle className="flex items-center gap-2 text-xl">
                         <Settings className="w-5 h-5 text-primary" />
                         Settings
@@ -58,7 +58,7 @@ export function SettingsDialog() {
                     {/* App Info */}
                     <div className="space-y-3">
                         <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">App Info</h4>
-                        <div className="bg-secondary/10 rounded-lg p-4 space-y-3 border border-border/50">
+                        <div className="bg-muted/40 rounded-lg p-4 space-y-3 border border-border">
                             <div className="flex justify-between items-center text-sm">
                                 <span className="flex items-center gap-2 text-muted-foreground">
                                     <GitBranch className="w-4 h-4" /> Version
@@ -69,7 +69,7 @@ export function SettingsDialog() {
                                 <span className="flex items-center gap-2 text-muted-foreground">
                                     <Database className="w-4 h-4" /> Local Data
                                 </span>
-                                <span className="text-white">
+                                <span className="text-foreground">
                                     {stats ? `${stats.items} Items, ${stats.locs} Locs` : 'Loading...'}
                                 </span>
                             </div>
@@ -97,7 +97,7 @@ export function SettingsDialog() {
                     </div>
                 </div>
 
-                <DialogFooter className="p-4 bg-secondary/5 border-t border-border/50">
+                <DialogFooter className="p-4 bg-muted/40 border-t border-border">
                     <div className="w-full text-center text-[10px] text-muted-foreground/40">
                         Build ID: 20251213-PROD
                     </div>

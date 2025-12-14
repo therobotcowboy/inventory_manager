@@ -72,7 +72,7 @@ export function SwipeableRow({ children, onEdit, onDelete, className }: Swipeabl
                 dragConstraints={{ left: -128, right: 0 }}
                 dragElastic={0.1}
                 onDragEnd={handleDragEnd}
-                className="relative z-10 bg-card rounded-xl border border-white/5 shadow-sm hover:bg-card transition-colors"
+                className="relative z-10 bg-card rounded-xl border border-border shadow-sm hover:bg-muted/50 transition-colors"
             >
                 {/* 
                  * NOTE: We rely on the child Card having a transparent background 
