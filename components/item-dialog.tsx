@@ -85,7 +85,7 @@ export function ItemDialog({ open, onOpenChange, initialItem, defaultLocationId 
         setLoading(true);
         try {
             // Logic: If trackLowStock is OFF, send undefined/null
-            const finalThreshold = (trackLowStock && (itemType === 'Part' || itemType === 'Consumable')) ? lowStockThreshold : undefined;
+            const finalThreshold = trackLowStock ? lowStockThreshold : undefined;
 
             if (initialItem) {
                 // Edit
@@ -245,34 +245,32 @@ export function ItemDialog({ open, onOpenChange, initialItem, defaultLocationId 
                             </div>
                         )}
 
-                        {/* Low Stock Threshold (Conditional) */}
-                        {(itemType === 'Part' || itemType === 'Consumable') && (
-                            <div className="grid gap-2 animate-in slide-in-from-top-2 mt-4">
-                                <div className="flex items-center justify-between px-6">
-                                    <Label htmlFor="track-stock" className="text-xs font-bold uppercase text-muted-foreground tracking-widest">
-                                        Track Low Stock
-                                    </Label>
-                                    <Switch
-                                        id="track-stock"
-                                        checked={trackLowStock}
-                                        onCheckedChange={setTrackLowStock}
+                        {/* Low Stock Config - Available for ALL types now */}
+                        <div className="grid gap-2 animate-in slide-in-from-top-2 mt-4">
+                            <div className="flex items-center justify-between px-6">
+                                <Label htmlFor="track-stock" className="text-xs font-bold uppercase text-muted-foreground tracking-widest">
+                                    Track Low Stock
+                                </Label>
+                                <Switch
+                                    id="track-stock"
+                                    checked={trackLowStock}
+                                    onCheckedChange={setTrackLowStock}
+                                />
+                            </div>
+
+                            {trackLowStock && (
+                                <div className="flex items-center px-6 gap-4 animate-in fade-in duration-300">
+                                    <Input
+                                        id="threshold"
+                                        type="number"
+                                        value={lowStockThreshold || ''}
+                                        onChange={(e) => setLowStockThreshold(Number(e.target.value))}
+                                        placeholder="Threshold (e.g. 1)"
+                                        className="text-lg h-16 rounded-none border-x-0 border-t-0 border-b border-border/50 bg-destructive/5 focus-visible:ring-0 focus-visible:bg-destructive/10 transition-colors flex-1"
                                     />
                                 </div>
-
-                                {trackLowStock && (
-                                    <div className="flex items-center px-6 gap-4 animate-in fade-in duration-300">
-                                        <Input
-                                            id="threshold"
-                                            type="number"
-                                            value={lowStockThreshold || ''}
-                                            onChange={(e) => setLowStockThreshold(Number(e.target.value))}
-                                            placeholder="Default: 5"
-                                            className="text-lg h-16 rounded-none border-x-0 border-t-0 border-b border-border/50 bg-destructive/5 focus-visible:ring-0 focus-visible:bg-destructive/10 transition-colors flex-1"
-                                        />
-                                    </div>
-                                )}
-                            </div>
-                        )}
+                            )}
+                        </div>
 
                         {/* Location Select (Filtered) */}
                         <div className="grid gap-2">

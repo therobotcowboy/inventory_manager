@@ -8,6 +8,7 @@ import { toast } from '@/lib/toast';
 
 export function DebugConsole() {
     const [logs, setLogs] = useState<LogEntry[]>([]);
+    const [isExpanded, setIsExpanded] = useState(false);
     const endRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -42,14 +43,20 @@ export function DebugConsole() {
     };
 
     return (
-        <div className="flex flex-col h-[300px] bg-black rounded-lg border border-border/20 overflow-hidden font-mono text-xs">
+        <div className={`flex flex-col bg-black rounded-lg border border-border/20 overflow-hidden font-mono text-xs transition-all duration-300 ${isExpanded ? 'h-[300px]' : 'h-10'}`}>
             {/* Toolbar */}
-            <div className="flex items-center justify-between p-2 bg-white/5 border-b border-white/10">
+            <div
+                className="flex items-center justify-between p-2 bg-white/5 border-b border-white/10 cursor-pointer hover:bg-white/10"
+                onClick={() => setIsExpanded(!isExpanded)}
+            >
                 <div className="flex items-center gap-2 text-muted-foreground">
                     <Terminal className="w-4 h-4" />
                     <span className="font-bold">System Logs</span>
+                    <span className="text-[10px] opacity-50 ml-2">
+                        {isExpanded ? '(Click to Collapse)' : '(Click to Expand)'}
+                    </span>
                 </div>
-                <div className="flex gap-1">
+                <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
                     <Button
                         variant="ghost"
                         size="sm"
@@ -70,7 +77,7 @@ export function DebugConsole() {
             </div>
 
             {/* Logs Area */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-2">
+            <div className={`flex-1 overflow-y-auto p-4 space-y-2 ${!isExpanded && 'hidden'}`}>
                 {logs.length === 0 && (
                     <div className="text-center text-muted-foreground opacity-50 py-8">
                         No logs captured.
