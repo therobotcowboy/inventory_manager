@@ -93,8 +93,8 @@ export function LocationView({ locationId, onNavigate, onEditItem, onDeleteItem,
                                     onClick={() => onNavigate(loc.id, loc.name)}
                                 >
                                     <div className="flex items-center gap-4">
-                                        {/* Icon */}
-                                        <div className="shrink-0 text-muted-foreground">
+                                        {/* Icon: Minimum 44x44px target via sizing */}
+                                        <div className="shrink-0 text-muted-foreground w-11 h-11 flex items-center justify-center bg-secondary/20 rounded-lg">
                                             {getIcon(loc.type)}
                                         </div>
 

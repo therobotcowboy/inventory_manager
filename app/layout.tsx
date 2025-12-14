@@ -38,7 +38,7 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <SyncManager />
-          <Toaster richColors position="bottom-center" toastOptions={{
+          <Toaster richColors position="bottom-center" visibleToasts={1} toastOptions={{
             className: 'mb-12 shadow-lg border-border/20 rounded-full px-6'
           }} />
           <main className="max-w-md mx-auto min-h-screen p-6 relative shadow-2xl bg-background border-x border-border/10 pb-32">

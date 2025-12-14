@@ -201,6 +201,7 @@ export default function InventoryView() {
                 <div className="relative">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                     <Input
+                        aria-label="Search items"
                         placeholder="Search items..."
                         className="pl-12 h-12 text-lg bg-secondary/20 border-border focus-visible:ring-primary/50"
                         value={search}
