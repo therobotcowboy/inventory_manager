@@ -99,6 +99,9 @@ export const InventoryService = {
         const item = await db.items.get(id);
         if (!item) return;
 
+        // Log transaction BEFORE deleting, so item exists for FK
+        await this.logTransaction(id, 'LOSS', -item.quantity, `Deleted: ${item.name}`);
+
         await db.items.delete(id);
 
         await db.offlineQueue.add({
@@ -111,8 +114,6 @@ export const InventoryService = {
                 data: { id }
             }
         });
-
-        await this.logTransaction(id, 'LOSS', -item.quantity, `Deleted: ${item.name}`);
     },
 
     async deleteLocation(id: string) {

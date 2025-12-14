@@ -42,9 +42,14 @@ export function LocationView({ locationId, onNavigate, onEditItem, onDeleteItem,
         }
     }, [locationId]);
 
-    // 3. Fetch Items in this Location
+    // 3. Fetch Items in this Location (or Loose Items if Root)
     const items = useLiveQuery(async () => {
-        if (!locationId) return []; // Items shouldn't be at Root usually
+        if (!locationId) {
+            // Root: Get unassigned items
+            return await db.items
+                .filter(i => !i.location_id || i.location_id === 'unassigned') // robustness
+                .toArray();
+        }
         return await db.items
             .where('location_id').equals(locationId)
             .toArray();
@@ -111,44 +116,55 @@ export function LocationView({ locationId, onNavigate, onEditItem, onDeleteItem,
                 </div>
             )}
 
-            {/* Separator if both exist */}
-            {childLocations?.length! > 0 && items?.length! > 0 && (
-                <div className="text-xs font-bold text-muted-foreground uppercase tracking-widest pl-2 opacity-50">
-                    Items in this {currentLocation?.type || 'Location'}
-                </div>
-            )}
-
-            {/* Items List */}
+            {/* Separator / Header Logic */}
             {items && items.length > 0 && (
-                <div className="flex flex-col gap-3">
-                    {items.map(item => (
-                        <SwipeableRow
-                            key={item.id}
-                            onEdit={() => onEditItem(item)}
-                            onDelete={() => onDeleteItem(item.id, item.name)}
-                        >
-                            <CardContent className="p-4 flex items-center justify-between">
-                                <div>
-                                    <div className="font-semibold text-white text-lg">{item.name}</div>
-                                    <div className="flex items-center gap-2 mt-1">
-                                        <Badge variant="secondary" className="text-xs">
-                                            Qty: {item.quantity}
-                                        </Badge>
-                                        {(item.low_stock_threshold !== undefined && item.quantity <= item.low_stock_threshold) && (
-                                            <Badge variant="destructive" className="flex gap-1 items-center text-[10px] px-1 h-5">
-                                                <AlertTriangle className="w-3 h-3" /> Low Stock
+                <div className="pt-2">
+                    {!locationId ? (
+                        <div className="flex items-center gap-4 mb-3">
+                            <div className="h-px bg-border flex-1" />
+                            <span className="text-xs font-bold text-orange-500 uppercase tracking-widest whitespace-nowrap flex items-center gap-2">
+                                <AlertTriangle className="h-3 w-3" /> Loose Items
+                            </span>
+                            <div className="h-px bg-border flex-1" />
+                        </div>
+                    ) : (
+                        (childLocations?.length! > 0) && (
+                            <div className="text-xs font-bold text-muted-foreground uppercase tracking-widest pl-2 opacity-50 mb-3">
+                                Items in this {currentLocation?.type || 'Location'}
+                            </div>
+                        )
+                    )}
+
+                    <div className="flex flex-col gap-3">
+                        {items.map(item => (
+                            <SwipeableRow
+                                key={item.id}
+                                onEdit={() => onEditItem(item)}
+                                onDelete={() => onDeleteItem(item.id, item.name)}
+                            >
+                                <CardContent className={`p-4 flex items-center justify-between ${!locationId ? 'bg-orange-500/5' : ''}`}> {/* Highlight loose items slightly */}
+                                    <div>
+                                        <div className="font-semibold text-foreground text-lg">{item.name}</div>
+                                        <div className="flex items-center gap-2 mt-1">
+                                            <Badge variant="secondary" className="text-xs">
+                                                Qty: {item.quantity}
                                             </Badge>
-                                        )}
-                                        {item.item_type && (
-                                            <Badge variant="outline" className="text-[10px] px-1 h-5 border-white/10 text-muted-foreground">
-                                                {item.item_type}
-                                            </Badge>
-                                        )}
+                                            {(item.low_stock_threshold !== undefined && item.quantity <= item.low_stock_threshold) && (
+                                                <Badge variant="destructive" className="flex gap-1 items-center text-[10px] px-1 h-5">
+                                                    <AlertTriangle className="w-3 h-3" /> Low Stock
+                                                </Badge>
+                                            )}
+                                            {item.item_type && (
+                                                <Badge variant="outline" className="text-[10px] px-1 h-5 border-white/10 text-muted-foreground">
+                                                    {item.item_type}
+                                                </Badge>
+                                            )}
+                                        </div>
                                     </div>
-                                </div>
-                            </CardContent>
-                        </SwipeableRow>
-                    ))}
+                                </CardContent>
+                            </SwipeableRow>
+                        ))}
+                    </div>
                 </div>
             )}
 

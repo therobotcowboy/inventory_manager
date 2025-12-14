@@ -7,7 +7,7 @@ interface OfflineAction {
     timestamp: string;
     type: 'SYNC_PUSH';
     payload: {
-        table: 'items' | 'locations' | 'audit_logs' | 'inventory_transactions';
+        table: 'items' | 'inventory_transactions' | 'locations' | 'audit_logs';
         action: 'INSERT' | 'UPDATE' | 'DELETE';
         data: any;
     };
