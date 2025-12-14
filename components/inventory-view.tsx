@@ -107,10 +107,10 @@ export default function InventoryView() {
         try {
             if (deleteTarget.type === 'ITEM') {
                 await InventoryService.deleteItem(deleteTarget.id);
-                toast.success("Item deleted");
+                // toast.success("Item deleted");
             } else {
                 await InventoryService.deleteLocation(deleteTarget.id);
-                toast.success("Location deleted");
+                // toast.success("Location deleted");
             }
             processOfflineQueue();
         } catch (e: any) {

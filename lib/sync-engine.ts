@@ -51,7 +51,7 @@ export async function processOfflineQueue(): Promise<number> {
 
                 // Mark as synced
                 await db.offlineQueue.update(action.id, { synced: true });
-                toast.success("Synced to Cloud");
+                // toast.success("Synced to Cloud");
 
             } catch (error: any) {
                 console.error("Sync Error for action", action.id, error);
