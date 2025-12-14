@@ -4,64 +4,73 @@ import { supabase } from './supabase';
 import { liveQuery } from 'dexie';
 import { toast } from 'sonner';
 
+let isSyncing = false;
+
 /**
  * PUSH: Watch the OfflineQueue and try to sync with Supabase
  */
 export async function processOfflineQueue(): Promise<number> {
+    if (isSyncing) return 0;
+
     // Use filter because boolean indexing can be tricky across Dexie versions
     const queue = await db.offlineQueue.filter(a => a.synced === false).toArray();
 
     if (queue.length === 0) return 0;
 
-    for (const action of queue) {
-        try {
-            if (action.type === 'SYNC_PUSH') {
-                const { table, action: dbAction, data } = action.payload;
+    try {
+        isSyncing = true;
+        for (const action of queue) {
+            try {
+                if (action.type === 'SYNC_PUSH') {
+                    const { table, action: dbAction, data } = action.payload;
 
-                if (dbAction === 'INSERT') {
-                    // Start Debug Logging
-                    console.log(`[Sync] Inserting into ${table}:`, data);
-                    const { error } = await supabase.from(table).insert(data);
-                    if (error) {
-                        console.error(`[Sync] Insert Error (${table}):`, error);
-                        throw error;
-                    }
-                } else if (dbAction === 'UPDATE') {
-                    console.log(`[Sync] Updating ${table}:${data.id}`, data);
-                    const { error } = await supabase.from(table).update(data).eq('id', data.id);
-                    if (error) {
-                        console.error(`[Sync] Update Error (${table}):`, error);
-                        throw error;
-                    }
-                } else if (dbAction === 'DELETE') {
-                    console.log(`[Sync] Deleting from ${table}:${data.id}`);
-                    const { error } = await supabase.from(table).delete().eq('id', data.id);
-                    if (error) {
-                        console.error(`[Sync] Delete Error (${table}):`, error);
-                        throw error;
+                    if (dbAction === 'INSERT') {
+                        // Start Debug Logging
+                        console.log(`[Sync] Inserting into ${table}:`, data);
+                        const { error } = await supabase.from(table).insert(data);
+                        if (error) {
+                            console.error(`[Sync] Insert Error (${table}):`, error);
+                            throw error;
+                        }
+                    } else if (dbAction === 'UPDATE') {
+                        console.log(`[Sync] Updating ${table}:${data.id}`, data);
+                        const { error } = await supabase.from(table).update(data).eq('id', data.id);
+                        if (error) {
+                            console.error(`[Sync] Update Error (${table}):`, error);
+                            throw error;
+                        }
+                    } else if (dbAction === 'DELETE') {
+                        console.log(`[Sync] Deleting from ${table}:${data.id}`);
+                        const { error } = await supabase.from(table).delete().eq('id', data.id);
+                        if (error) {
+                            console.error(`[Sync] Delete Error (${table}):`, error);
+                            throw error;
+                        }
                     }
                 }
-            }
 
-            // Mark as synced
-            await db.offlineQueue.update(action.id, { synced: true });
-            toast.success("Synced to Cloud");
+                // Mark as synced
+                await db.offlineQueue.update(action.id, { synced: true });
+                toast.success("Synced to Cloud");
 
-        } catch (error: any) {
-            console.error("Sync Error for action", action.id, error);
+            } catch (error: any) {
+                console.error("Sync Error for action", action.id, error);
 
-            // Check for unrecoverable errors (Constraint violations)
-            const msg = error.message || '';
-            if (msg.includes("violates check constraint") || msg.includes("violates foreign key constraint") || msg.includes("duplicate key value")) {
-                console.warn("Unrecoverable data error. Discarding action.", action);
-                await db.offlineQueue.delete(action.id);
-                toast.error(`Sync Skipped: Invalid data discarded. (${msg})`);
-            } else {
-                toast.error(`Sync Failed: ${msg || 'Unknown error'}`);
+                // Check for unrecoverable errors (Constraint violations)
+                const msg = error.message || '';
+                if (msg.includes("violates check constraint") || msg.includes("violates foreign key constraint") || msg.includes("duplicate key value")) {
+                    console.warn("Unrecoverable data error. Discarding action.", action);
+                    await db.offlineQueue.delete(action.id);
+                    toast.error(`Sync Skipped: Invalid data discarded. (${msg})`);
+                } else {
+                    toast.error(`Sync Failed: ${msg || 'Unknown error'}`);
+                }
             }
         }
+        return queue.length;
+    } finally {
+        isSyncing = false;
     }
-    return queue.length;
 }
 
 /**
