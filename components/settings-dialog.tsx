@@ -8,21 +8,15 @@ import { db } from "@/lib/db";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 
+import { useLiveQuery } from "dexie-react-hooks";
+import { APP_METADATA } from "@/lib/constants";
+
 export function SettingsDialog() {
     const [open, setOpen] = useState(false);
-    const [stats, setStats] = useState<{ items: number, locs: number } | null>(null);
 
-    // Load stats when opening
-    useEffect(() => {
-        if (open) {
-            Promise.all([
-                db.items.count(),
-                db.locations.count()
-            ]).then(([items, locs]) => {
-                setStats({ items, locs });
-            });
-        }
-    }, [open]);
+    // Live Stats
+    const itemCount = useLiveQuery(() => db.items.count());
+    const locCount = useLiveQuery(() => db.locations.count());
 
     const handleReset = async () => {
         if (confirm("⚠️ HARD RESET WARNING ⚠️\n\nThis will WIPE ALL LOCAL DATA and reload the app.\n\nAre you sure completely sure?")) {
@@ -63,14 +57,14 @@ export function SettingsDialog() {
                                 <span className="flex items-center gap-2 text-muted-foreground">
                                     <GitBranch className="w-4 h-4" /> Version
                                 </span>
-                                <Badge variant="secondary" className="font-mono">v5.0.1 (Sprint 6)</Badge>
+                                <Badge variant="secondary" className="font-mono">{APP_METADATA.fullVersion}</Badge>
                             </div>
                             <div className="flex justify-between items-center text-sm">
                                 <span className="flex items-center gap-2 text-muted-foreground">
                                     <Database className="w-4 h-4" /> Local Data
                                 </span>
                                 <span className="text-foreground">
-                                    {stats ? `${stats.items} Items, ${stats.locs} Locs` : 'Loading...'}
+                                    {itemCount !== undefined ? `${itemCount} Items, ${locCount} Locs` : 'Loading...'}
                                 </span>
                             </div>
                         </div>
@@ -99,7 +93,7 @@ export function SettingsDialog() {
 
                 <DialogFooter className="p-4 bg-muted/40 border-t border-border">
                     <div className="w-full text-center text-[10px] text-muted-foreground/40">
-                        Build ID: 20251213-PROD
+                        Build ID: {APP_METADATA.buildId}
                     </div>
                 </DialogFooter>
             </DialogContent>

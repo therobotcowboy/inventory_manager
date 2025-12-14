@@ -39,28 +39,19 @@ export function VoiceAgent() {
 
     /**
      * Helper: Check if specific item name is ambiguous in DB
-     * e.g. "Screws" -> matches "Wood Screws", "Drywall Screws" -> Ambiguous
      */
     const checkDbAmbiguity = async (itemName: string): Promise<boolean> => {
         if (!itemName) return false;
-        // Simple search: If we have > 1 item containing this name, it MIGHT be ambiguous
-        // But if we have an EXACT match, we usually prefer that.
-        // Example: "Screw" -> exact match "Screw"? No. "Wood Screw", "Metal Screw".
-
         const allItems = await db.items.toArray();
         const normalize = (s: string) => s.toLowerCase();
         const query = normalize(itemName);
 
         // 1. Exact Match?
         const exact = allItems.find(i => normalize(i.name) === query);
-        if (exact) return false; // Not ambiguous, we found it.
+        if (exact) return false;
 
         // 2. Partial Matches
         const matches = allItems.filter(i => normalize(i.name).includes(query));
-
-        // If query is very short (e.g. "Sc"), many matches, definitely ambiguous.
-        // If user says "Screws" and we have 2 types, yes ambiguous.
-        // If matches > 1, strictly ambiguous.
         return matches.length > 1;
     };
 
@@ -79,85 +70,78 @@ export function VoiceAgent() {
                 cmdText = `Original Context: "${clarificationContext}". User clarification: "${cmdText}"`;
             }
 
-            // 1. Parse (Returns Array)
-            // Note: analyzeImageAction currently returns Single Command, but we can wrap it.
-            // For text/voice, we use parseVoiceCommandAction which returns { commands: [] }
-
-            // Handle Image vs Text flow? 
-            // This function handles TEXT/VOICE. Image is separate. 
-            // We need to support analyzeImage returning array in future too, but for now let's handle text.
-
+            // 1. Parse
             const result = await parseVoiceCommandAction(cmdText);
-
             const { commands } = result;
-            let successCount = 0;
+
+            // 2. Execution Plans
+            let completedMsgs: string[] = [];
+            let errorMsgs: string[] = [];
             let pendingQuestion = "";
+            let newClarificationContext = clarificationContext;
 
-            // 2. Plan-Execute Loop
+            // Sequential Loop - "Try/Catch per item" to prevent one failure from stopping the chain
             for (const cmd of commands) {
-                // A. Check Ambiguity (LLM + DB)
-                let isAmbiguous = cmd.requires_clarification;
-                let question = cmd.clarification_question;
+                try {
+                    // A. Check Ambiguity
+                    let isAmbiguous = cmd.requires_clarification;
+                    let question = cmd.clarification_question;
 
-                // If LLM didn't flag it, double check DB (The "Step 3 Code" rule)
-                if (!isAmbiguous && cmd.type !== 'QUERY') { // Queries are safe to be broad
-                    // Only check if it's an existing item reference (UPDATE/REMOVE/MOVE) or ADD if specific?
-                    // Actually, for ADD, ambiguity implies "Which type do I add?".
-                    // For REMOVE, "Remove Screws" -> "Which ones?".
-                    const dbAmbiguous = await checkDbAmbiguity(cmd.item);
-                    if (dbAmbiguous) {
-                        isAmbiguous = true;
-                        question = `I have multiple types of "${cmd.item}". Which one did you mean?`;
+                    if (!isAmbiguous && cmd.type !== 'QUERY') {
+                        const dbAmbiguous = await checkDbAmbiguity(cmd.item);
+                        if (dbAmbiguous) {
+                            isAmbiguous = true;
+                            question = `I have multiple types of "${cmd.item}". Which one did you mean?`;
+                        }
                     }
-                }
 
-                if (isAmbiguous) {
-                    console.log("Ambiguous Command:", cmd);
-                    pendingQuestion = question || "I need clarification.";
-                    // Stop processing further commands? Or skip this one?
-                    // User Rule: "Execute READY commands... Do not execute NEEDS_CLARIFICATION... Ask pending."
-                    // We simply skip execution of this one.
-                } else {
-                    // B. Execute Valid
-                    console.log("Executing Valid:", cmd);
-                    await InventoryService.processCommand(cmd);
+                    if (isAmbiguous) {
+                        // If we hit ambiguity, we pause HERE.
+                        // We typically can't "skip" ambiguity in a dependency chain (e.g. Move the X I just bought), 
+                        // but for "List of Actions", we can do the others?
+                        // User Rule: "Do not execute NEEDS_CLARIFICATION... Ask pending."
+                        // We will log it as pending and NOT execute.
+                        pendingQuestion = question || "I need clarification.";
+                        newClarificationContext = cmdText; // Restore full context for retry
+                    } else {
+                        // B. Execute Valid
+                        console.log("Executing:", cmd);
+                        await InventoryService.processCommand(cmd);
 
-                    // User Feedback for this chunk
-                    let msg = "";
-                    if (cmd.type === 'ADD') msg = `✅ Added ${cmd.item}`;
-                    if (cmd.type === 'REMOVE') msg = `✅ Removed ${cmd.item}`;
-                    if (cmd.type === 'MOVE') msg = `✅ Moved ${cmd.item}`;
-                    if (cmd.type === 'QUERY') msg = `🔎 Checked ${cmd.item}`;
+                        let msg = "";
+                        if (cmd.type === 'ADD') msg = `✅ Added ${cmd.item}`;
+                        if (cmd.type === 'REMOVE') msg = `✅ Removed ${cmd.item}`;
+                        if (cmd.type === 'MOVE') msg = `✅ Moved ${cmd.item}`;
+                        if (cmd.type === 'QUERY') msg = `🔎 Checked ${cmd.item}`;
 
-                    if (msg) {
-                        setMessages(prev => [...prev, { role: 'assistant', text: msg }]);
+                        if (msg) completedMsgs.push(msg);
                     }
-                    successCount++;
+                } catch (innerError: any) {
+                    console.error("Command Error:", cmd, innerError);
+                    errorMsgs.push(`❌ Failed to ${cmd.type} ${cmd.item}: ${innerError.message}`);
                 }
             }
 
-            // 3. Final Summary / Next Steps
+            // 3. Batched Response
+            if (completedMsgs.length > 0) {
+                setMessages(prev => [...prev, { role: 'assistant', text: completedMsgs.join('\n') }]);
+            }
+            if (errorMsgs.length > 0) {
+                setMessages(prev => [...prev, { role: 'assistant', text: errorMsgs.join('\n') }]);
+            }
+
             await processOfflineQueue();
 
+            // 4. Handle Pending / Finish
             if (pendingQuestion) {
                 setMessages(prev => [...prev, { role: 'assistant', text: `🛑 ${pendingQuestion}` }]);
-
-                // Smart Context:
-                // Ideally remove successfully executed parts from context? 
-                // Simple approach: Keep the FULL original command, but append "Done: [items]".
-                // Actually, if we just send "Original: [Full Text]", LLM might re-parse everything.
-                // We should probably rely on the User's Next Input + Previous Failure.
-                // Let's set context as the ORIGINAL text, hoping the LLM is smart enough to see "Corrected: Blue Screws" and merge.
-                if (!clarificationContext) {
-                    setClarificationContext(cmdText);
-                }
-
+                setClarificationContext(newClarificationContext);
                 setIsDialogOpen(true);
-                setTimeout(() => startListening(), 200); // Auto-reply
+                setTimeout(() => startListening(), 200);
             } else {
-                // All Done
-                if (successCount > 0) {
-                    toast.success("Command Processed");
+                // Success
+                if (completedMsgs.length > 0) {
+                    toast.success("Processed successfully");
                 }
                 setClarificationContext(null);
                 setTimeout(() => {
@@ -167,8 +151,8 @@ export function VoiceAgent() {
             }
 
         } catch (e: any) {
-            console.error("AI Error", e);
-            setMessages(prev => [...prev, { role: 'assistant', text: "Sorry, I ran into an error processing that." }]);
+            console.error("AI Context Error", e);
+            setMessages(prev => [...prev, { role: 'assistant', text: "Sorry, critical error processing command." }]);
         } finally {
             setProcessing(false);
         }
@@ -196,7 +180,7 @@ export function VoiceAgent() {
 
     const [isUploading, setIsUploading] = useState(false);
 
-    // Client-side Resize (Copied from previous version)
+    // Client-side Resize
     const resizeImage = (file: File): Promise<string> => {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
@@ -229,15 +213,11 @@ export function VoiceAgent() {
 
         try {
             const base64 = await resizeImage(file);
-            // NOTE: analyzeImage currently returns ONE command. 
-            // Ideally we stick to that for Images (usually one main subject).
             const result = await analyzeImageAction(base64);
 
             if (result) {
                 setMessages(prev => [...prev, { role: 'assistant', text: `I identified: ${result.item}.` }]);
 
-                // Wrap in Array to reuse logic?
-                // Or just keep simple for generic single-item image add
                 if (!result.requires_clarification) {
                     await InventoryService.processCommand(result);
                     processOfflineQueue();
@@ -312,7 +292,7 @@ export function VoiceAgent() {
                         {messages.map((m, i) => (
                             <div key={i} className={cn("flex w-full", m.role === 'user' ? "justify-end" : "justify-start")}>
                                 <div className={cn("max-w-[80%] p-3 rounded-2xl text-sm md:text-base shadow-sm", m.role === 'user' ? "bg-primary text-primary-foreground rounded-br-none" : "bg-card border text-card-foreground rounded-bl-none")}>
-                                    {m.text}
+                                    <span className="whitespace-pre-line">{m.text}</span>
                                 </div>
                             </div>
                         ))}
