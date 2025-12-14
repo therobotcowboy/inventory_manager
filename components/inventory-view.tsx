@@ -20,6 +20,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { LocationView } from '@/components/hierarchy/location-view';
 import { SmartError } from "@/components/ui/smart-error";
 import { SettingsDialog } from "@/components/settings-dialog";
+import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 
 export default function InventoryView() {
     const router = useRouter();
@@ -40,6 +41,7 @@ export default function InventoryView() {
     const [locationDialogOpen, setLocationDialogOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<Item | null>(null);
     const [editingLocation, setEditingLocation] = useState<Location | null>(null);
+    const [deleteTarget, setDeleteTarget] = useState<{ type: 'ITEM' | 'LOCATION', id: string, name: string } | null>(null);
 
     // --- Search Logic (Global) ---
     const isSearching = search.length > 0;
@@ -91,15 +93,30 @@ export default function InventoryView() {
     const currentLocation = currentLocationId ? locations.find(l => l.id === currentLocationId) : null;
 
     // --- Actions ---
-    const handleDeleteItem = async (id: string, name: string) => {
-        if (confirm(`Are you sure you want to delete ${name}?`)) {
-            try {
-                await InventoryService.deleteItem(id);
-                processOfflineQueue();
+    const handleDeleteItem = (id: string, name: string) => {
+        setDeleteTarget({ type: 'ITEM', id, name });
+    };
+
+    const handleDeleteLocation = (id: string, name: string) => {
+        setDeleteTarget({ type: 'LOCATION', id, name });
+    };
+
+    const handleConfirmDelete = async () => {
+        if (!deleteTarget) return;
+
+        try {
+            if (deleteTarget.type === 'ITEM') {
+                await InventoryService.deleteItem(deleteTarget.id);
                 toast.success("Item deleted");
-            } catch (e) {
-                SmartError.show("Failed to delete item", e);
+            } else {
+                await InventoryService.deleteLocation(deleteTarget.id);
+                toast.success("Location deleted");
             }
+            processOfflineQueue();
+        } catch (e: any) {
+            SmartError.show(`Failed to delete ${deleteTarget.type.toLowerCase()}`, e);
+        } finally {
+            setDeleteTarget(null);
         }
     };
 
@@ -135,6 +152,14 @@ export default function InventoryView() {
                 onOpenChange={setLocationDialogOpen}
                 initialLocation={editingLocation}
                 defaultParentId={currentLocationId} // Pass context!
+            />
+
+            <DeleteConfirmDialog
+                open={!!deleteTarget}
+                onOpenChange={(open) => !open && setDeleteTarget(null)}
+                onConfirm={handleConfirmDelete}
+                title={`Delete ${deleteTarget?.type === 'ITEM' ? 'Item' : 'Location'}`}
+                description={`Are you sure you want to delete "${deleteTarget?.name}"? This action cannot be undone.`}
             />
 
             {/* Header */}
@@ -263,6 +288,7 @@ export default function InventoryView() {
                     onNavigate={(id, name) => handleNavigate(id)}
                     onEditItem={(item) => { setEditingItem(item); setItemDialogOpen(true); }}
                     onDeleteItem={handleDeleteItem}
+                    onDeleteLocation={handleDeleteLocation}
                     onEditLocation={(loc) => { setEditingLocation(loc); setLocationDialogOpen(true); }}
                 />
             )}

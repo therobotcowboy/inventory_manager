@@ -5,13 +5,16 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Plus, Pencil, Trash2, MapPin, FolderOpen } from "lucide-react";
+import { ArrowLeft, Plus, Pencil, Trash2, MapPin, FolderOpen, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { LocationDialog } from '@/components/location-dialog';
 import { SwipeableRow } from "@/components/ui/swipeable-row";
 import { Location } from '@/lib/types';
 import { toast } from 'sonner';
 import { processOfflineQueue } from '@/lib/sync-engine';
+import { InventoryService } from '@/lib/inventory-service';
+import { DeleteConfirmDialog } from '@/components/delete-confirm-dialog';
+import { SmartError } from "@/components/ui/smart-error";
 
 export default function LocationsPage() {
     // ... hooks ...
@@ -19,6 +22,7 @@ export default function LocationsPage() {
     const items = useLiveQuery(() => db.items.toArray());
     const [dialogOpen, setDialogOpen] = useState(false);
     const [editingLoc, setEditingLoc] = useState<Location | null>(null);
+    const [deleteTarget, setDeleteTarget] = useState<{ id: string, name: string } | null>(null);
 
     // ... handlers ...
     const openAddDialog = () => {
@@ -31,30 +35,20 @@ export default function LocationsPage() {
         setDialogOpen(true);
     };
 
-    const handleDelete = async (id: string, name: string) => {
-        // ... existing delete logic ...
-        const hasChildren = locations?.some(l => l.parent_id === id);
-        if (hasChildren) {
-            toast.error("Cannot delete a location with sub-locations.");
-            return;
-        }
+    const handleDelete = (id: string, name: string) => {
+        setDeleteTarget({ id, name });
+    };
 
-        if (confirm(`Delete ${name}?`)) {
-            try {
-                await db.locations.delete(id);
-                // Queue Delete
-                await db.offlineQueue.add({
-                    timestamp: new Date().toISOString(),
-                    type: 'SYNC_PUSH',
-                    payload: { table: 'locations', action: 'DELETE', data: { id } },
-                    synced: false
-                });
-                processOfflineQueue();
-                toast.success("Location deleted");
-            } catch (e) {
-                console.error(e);
-                toast.error("Failed to delete");
-            }
+    const handleConfirmDelete = async () => {
+        if (!deleteTarget) return;
+        try {
+            await InventoryService.deleteLocation(deleteTarget.id);
+            processOfflineQueue();
+            toast.success("Location deleted");
+        } catch (e: any) {
+            SmartError.show("Failed to delete location", e);
+        } finally {
+            setDeleteTarget(null);
         }
     };
 
@@ -72,21 +66,26 @@ export default function LocationsPage() {
                     onEdit={() => openEditDialog(loc)}
                     onDelete={() => handleDelete(loc.id, loc.name)}
                 >
-                    <Link href={`/locations/${loc.id}`} className="block h-full cursor-pointer">
-                        <CardContent className="p-3 flex items-center justify-between">
-                            <div className="flex items-center gap-3" style={{ marginLeft: `${level * 24}px` }}>
-                                {level === 0 ? <MapPin className="h-4 w-4 text-primary group-hover:text-blue-400 transition-colors" /> : <FolderOpen className="h-4 w-4 text-muted-foreground group-hover:text-blue-400 transition-colors" />}
-                                <div>
-                                    <div className="font-medium text-white group-hover:text-blue-400 transition-colors">{loc.name}</div>
-                                    <div className="flex items-center gap-2 text-[10px] text-muted-foreground uppercase">
-                                        <span>{loc.type}</span>
-                                        <span className="text-white/20">•</span>
-                                        <span className="text-blue-400">{itemCount} items</span>
+                    <Card className="bg-card border-border shadow-sm hover:bg-muted/50 transition-colors rounded-xl overflow-hidden">
+                        <Link href={`/locations/${loc.id}`} className="block h-full cursor-pointer">
+                            <CardContent className="p-4 flex items-center justify-between active:bg-white/5 transition-colors">
+                                <div className="flex items-center gap-4" style={{ paddingLeft: `${level * 16}px` }}>
+                                    <div className="shrink-0 text-muted-foreground">
+                                        {level === 0 ? <MapPin className="h-5 w-5 text-primary" /> : <FolderOpen className="h-5 w-5" />}
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <span className="font-semibold text-foreground text-lg">{loc.name}</span>
+                                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                            <span className="uppercase tracking-wide">{loc.type}</span>
+                                            <span>•</span>
+                                            <span className="text-primary/80">{itemCount} items</span>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        </CardContent>
-                    </Link>
+                                <ChevronRight className="h-5 w-5 text-muted-foreground/50" />
+                            </CardContent>
+                        </Link>
+                    </Card>
                 </SwipeableRow>
                 {children.map(child => renderLocationNode(child, level + 1))}
             </div>
@@ -99,6 +98,13 @@ export default function LocationsPage() {
     return (
         <div className="flex flex-col gap-6 animate-in fade-in duration-500 pb-24">
             <LocationDialog open={dialogOpen} onOpenChange={setDialogOpen} initialLocation={editingLoc} />
+            <DeleteConfirmDialog
+                open={!!deleteTarget}
+                onOpenChange={(open) => !open && setDeleteTarget(null)}
+                onConfirm={handleConfirmDelete}
+                title="Delete Location"
+                description={`Are you sure you want to delete "${deleteTarget?.name}"? You cannot delete a location that contains items or sub-locations.`}
+            />
 
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
@@ -107,7 +113,7 @@ export default function LocationsPage() {
                             <ArrowLeft className="h-6 w-6" />
                         </Button>
                     </Link>
-                    <h1 className="text-2xl font-bold tracking-tight text-white">Locations</h1>
+                    <h1 className="text-2xl font-bold tracking-tight text-foreground">Locations</h1>
                 </div>
                 <Button onClick={openAddDialog} size="sm" className="bg-primary hover:bg-primary/90">
                     <Plus className="h-4 w-4 mr-2" /> Add

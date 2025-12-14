@@ -6,6 +6,8 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+
+  /* Theme Defaults (Tailwind preserved) */
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
   --color-sidebar-ring: var(--sidebar-ring);
@@ -46,8 +48,20 @@
 :root {
   --radius: 0.45rem;
 
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.13 0.028 261.692);
+  /* High-Fidelity Theme - Light Mode (Filled) */
+  --background: #F9FAFB;
+  --foreground: #000000;
+
+  --im-card-inventory-bg: #FFF8E1;
+  --im-card-inventory-border: #E8C48C;
+  --im-card-inventory-text: #B45309;
+
+  --im-card-blue-bg: #E3F2FD;
+  --im-card-blue-border: #BFDBFE;
+  --im-card-blue-text: #1D4ED8;
+
+  --im-orange-vivid: #FF5500;
+
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.13 0.028 261.692);
   --popover: oklch(1 0 0);
@@ -77,11 +91,29 @@
   --sidebar-accent-foreground: oklch(0.98 0.016 73.684);
   --sidebar-border: oklch(0.928 0.006 264.531);
   --sidebar-ring: oklch(0.707 0.022 261.325);
+
+  /* Joe's Inventory Theme - Light Mode */
+  --im-orange-primary: #FCAD00;
+  --im-orange-deep: #FF5A00;
+  --im-blue-primary: #0081FF;
+  --im-blue-bg: #F0F9FF;
+  --im-inventory-bg: #FFF9F0;
 }
 
 .dark {
-  --background: oklch(0.13 0.028 261.692);
-  --foreground: oklch(0.985 0.002 247.839);
+  /* High-Fidelity Theme - Dark Mode (Filled based on Image) */
+  --background: #020713;
+  --foreground: #FFFFFF;
+
+  /* Cards are FILLED with deep colors */
+  --im-card-inventory-bg: #2E1B0A;
+  --im-card-inventory-border: #FCAD00;
+  --im-card-inventory-text: #FCAD00;
+
+  --im-card-blue-bg: #0D1929;
+  --im-card-blue-border: #0081FF;
+  --im-card-blue-text: #0081FF;
+
   --card: oklch(0.21 0.034 264.665);
   --card-foreground: oklch(0.985 0.002 247.839);
   --popover: oklch(0.21 0.034 264.665);
@@ -111,6 +143,15 @@
   --sidebar-accent-foreground: oklch(0.98 0.016 73.684);
   --sidebar-border: oklch(1 0 0 / 0.1);
   --sidebar-ring: oklch(0.551 0.027 264.364);
+  /* Inferred Light Tint */
+  /* Dark Mode Overrides (Sprint 6) */
+  --im-orange-primary: #FCAD00;
+  --im-orange-deep: #FF5A00;
+  --im-blue-primary: #0081FF;
+  --im-blue-bg: #04132D;
+  /* Deep Blue bg */
+  --im-inventory-bg: #251E10;
+  /* Dark Inventory Bg */
 }
 
 @layer base {

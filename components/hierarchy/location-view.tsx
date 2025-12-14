@@ -15,10 +15,11 @@ interface LocationViewProps {
     onNavigate: (id: string, name: string) => void;
     onEditItem: (item: Item) => void;
     onDeleteItem: (id: string, name: string) => void;
+    onDeleteLocation: (id: string, name: string) => void;
     onEditLocation: (location: Location) => void;
 }
 
-export function LocationView({ locationId, onNavigate, onEditItem, onDeleteItem, onEditLocation }: LocationViewProps) {
+export function LocationView({ locationId, onNavigate, onEditItem, onDeleteItem, onDeleteLocation, onEditLocation }: LocationViewProps) {
     // 1. Fetch Location Details (if not root)
     const currentLocation = useLiveQuery(async () => {
         if (!locationId) return null;
@@ -70,26 +71,42 @@ export function LocationView({ locationId, onNavigate, onEditItem, onDeleteItem,
     return (
         <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
 
-            {/* Child Locations Grid */}
+            {/* Child Locations Grid -> converted to List for Swipe Support */}
             {childLocations && childLocations.length > 0 && (
-                <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col gap-3">
                     {childLocations.map(loc => (
-                        <Card
+                        <SwipeableRow
                             key={loc.id}
-                            className="bg-card/40 border-white/5 hover:bg-white/5 transition-colors cursor-pointer active:scale-95 duration-100"
-                            onClick={() => onNavigate(loc.id, loc.name)}
+                            onEdit={() => onEditLocation(loc)}
+                            onDelete={() => onDeleteLocation(loc.id, loc.name)}
                         >
-                            <CardContent className="p-4 flex flex-col items-center justify-center text-center gap-3 h-32 relative">
-                                {getIcon(loc.type)}
-                                <span className="font-semibold leading-tight text-sm line-clamp-2">
-                                    {loc.name}
-                                </span>
-                                <span className="text-[10px] text-muted-foreground uppercase tracking-widest bg-black/20 px-2 py-0.5 rounded-full">
-                                    {loc.type}
-                                </span>
-                                {/* Editing Dot/Button? Maybe long press? For now, we omit edit location on grid to keep it clean, or add a small settings icon */}
-                            </CardContent>
-                        </Card>
+                            <Card
+                                className="bg-card border-border shadow-sm hover:bg-muted/50 transition-colors"
+                            >
+                                <CardContent
+                                    className="p-4 flex items-center justify-between cursor-pointer active:bg-white/5 transition-colors"
+                                    onClick={() => onNavigate(loc.id, loc.name)}
+                                >
+                                    <div className="flex items-center gap-4">
+                                        {/* Icon */}
+                                        <div className="shrink-0 text-muted-foreground">
+                                            {getIcon(loc.type)}
+                                        </div>
+
+                                        <div className="flex flex-col">
+                                            <span className="font-semibold text-foreground text-lg leading-tight">
+                                                {loc.name}
+                                            </span>
+                                            <span className="text-xs text-muted-foreground mt-0.5 uppercase tracking-wide">
+                                                {loc.type}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <ArrowRight className="h-5 w-5 text-muted-foreground/50" />
+                                </CardContent>
+                            </Card>
+                        </SwipeableRow>
                     ))}
                 </div>
             )}

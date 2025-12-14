@@ -243,7 +243,7 @@ export function VoiceAgent() {
                         size="lg"
                         className={cn(
                             "h-16 w-16 rounded-full shadow-xl border-4 border-background transition-all duration-300 border-border",
-                            "bg-orange-500 text-white hover:bg-orange-600 border-border"
+                            "bg-[var(--im-orange-deep)] text-white hover:opacity-90 border-border"
                         )}
                         onClick={() => document.getElementById('camera-input')?.click()}
                         disabled={isUploading || processing}
@@ -261,7 +261,7 @@ export function VoiceAgent() {
                         onClick={handleMicClick}
                         className={cn(
                             "h-16 w-16 rounded-full shadow-xl border-4 border-background transition-all duration-300 border-border",
-                            isListening ? "bg-red-500 hover:bg-red-600 animate-pulse" : "bg-primary hover:bg-primary/90"
+                            isListening ? "bg-red-500 hover:bg-red-600 animate-pulse" : "bg-[var(--im-orange-deep)] hover:opacity-90"
                         )}
                     >
                         {isListening ? <Square className="h-6 w-6 fill-current" /> : <Mic className="h-8 w-8" />}

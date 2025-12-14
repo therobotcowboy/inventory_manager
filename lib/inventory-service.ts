@@ -115,6 +115,33 @@ export const InventoryService = {
         await this.logTransaction(id, 'LOSS', -item.quantity, `Deleted: ${item.name}`);
     },
 
+    async deleteLocation(id: string) {
+        const timestamp = new Date().toISOString();
+        const loc = await db.locations.get(id);
+        if (!loc) return;
+
+        // Check for children
+        const children = await db.locations.where('parent_id').equals(id).count();
+        const items = await db.items.where('location_id').equals(id).count();
+
+        if (children > 0 || items > 0) {
+            throw new Error(`Cannot delete location. It contains ${children} sub-locations and ${items} items.`);
+        }
+
+        await db.locations.delete(id);
+
+        await db.offlineQueue.add({
+            timestamp,
+            type: 'SYNC_PUSH',
+            synced: false,
+            payload: {
+                table: 'locations',
+                action: 'DELETE',
+                data: { id }
+            }
+        });
+    },
+
     async logTransaction(itemId: string, type: TransactionType, qtyChange: number, jobRef?: string) {
         const txn: InventoryTransaction = {
             id: crypto.randomUUID(),

@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Box, Search, AlertTriangle, Loader2, Plus, Pencil, Trash2, MapPin, ClipboardList } from "lucide-react";
+import { ArrowLeft, Wrench, Search, AlertTriangle, Loader2, Plus, Pencil, Trash2, MapPin, ClipboardList, Camera, Mic } from "lucide-react";
 import { toast } from 'sonner';
 import { processOfflineQueue } from '@/lib/sync-engine';
 import Link from "next/link";
@@ -10,7 +10,7 @@ import { SettingsDialog } from "@/components/settings-dialog";
 
 export default function Home() {
   return (
-    <div className="flex flex-col gap-6 pb-24">
+    <div className="flex flex-col gap-6 pb-24 h-[calc(100vh-2rem)] relative">
       {/* Welcome Section */}
       <section className="flex items-start justify-between">
         <h1 className="text-3xl font-bold tracking-tight text-foreground">
@@ -24,50 +24,94 @@ export default function Home() {
         <SettingsDialog />
       </section>
 
-      {/* Quick Actions Grid */}
-      <section className="grid grid-cols-2 gap-4">
+      {/* Main Action Stack (Vertical) */}
+      <section className="flex flex-col gap-4">
+
+        {/* Inventory Card */}
         <Link href="/inventory" className="block group">
-          <Card className="bg-yellow-500/10 border-yellow-500/20 hover:bg-yellow-500/20 transition-all cursor-pointer h-full">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg text-yellow-500 group-hover:text-yellow-400 flex items-center gap-2">
-                <Box className="h-5 w-5" />
-                Inventory
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-xs text-muted-foreground">Manage tools & parts manually.</p>
-            </CardContent>
-          </Card>
-        </Link>
-
-        <Link href="/locations" className="block group">
-          <Card className="bg-blue-500/10 border-blue-500/20 hover:bg-blue-500/20 transition-all cursor-pointer h-full">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg text-blue-500 group-hover:text-blue-400 flex items-center gap-2">
-                <MapPin className="h-5 w-5" />
-                Locations
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-xs text-muted-foreground">Manage vans, bins & sites.</p>
-            </CardContent>
-          </Card>
-        </Link>
-
-        <Card className="col-span-2 bg-card/50 hover:bg-card/80 transition-colors cursor-pointer border-l-4 border-l-blue-500/50">
-          <Link href="/recommendations" className="block w-full h-full cursor-pointer">
-            <div className="p-6">
-              <CardHeader className="p-0 pb-2">
-                <ClipboardList className="w-8 h-8 text-blue-500 mb-2" />
-                <CardTitle className="text-lg">Job Recs</CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                <p className="text-sm text-muted-foreground">What do I need?</p>
-              </CardContent>
+          <Card className="h-[100px] rounded-xl border-2 transition-all cursor-pointer relative overflow-hidden
+            bg-[var(--im-card-inventory-bg)] 
+            border-[var(--im-card-inventory-border)] 
+            hover:border-[var(--im-card-inventory-text)]
+            flex flex-col justify-center px-6">
+            <div className="relative z-10">
+              <div className="flex items-center gap-3 mb-1">
+                <Wrench className="h-6 w-6 stroke-[2.5px] text-[var(--im-card-inventory-text)]" />
+                <h3 className="text-[18px] font-semibold text-[var(--im-card-inventory-text)]">
+                  Inventory
+                </h3>
+              </div>
+              <p className="text-[13px] font-normal text-foreground opacity-70">
+                Manage tools, parts, and consumables
+              </p>
             </div>
-          </Link>
-        </Card>
+          </Card>
+        </Link>
+
+        {/* Locations Card */}
+        <Link href="/locations" className="block group">
+          <Card className="h-[100px] rounded-xl border-2 transition-all cursor-pointer relative overflow-hidden
+            bg-[var(--im-card-blue-bg)] 
+            border-[var(--im-card-blue-border)] 
+            hover:border-[var(--im-card-blue-text)]
+            flex flex-col justify-center px-6">
+            <div className="relative z-10">
+              <div className="flex items-center gap-3 mb-1">
+                <MapPin className="h-6 w-6 stroke-[2.5px] text-[var(--im-card-blue-text)]" />
+                <h3 className="text-[18px] font-semibold text-[var(--im-card-blue-text)]">
+                  Locations
+                </h3>
+              </div>
+              <p className="text-[13px] font-normal text-foreground opacity-70">
+                Manage Sites, Vans, Bins, and Shelves
+              </p>
+            </div>
+          </Card>
+        </Link>
+
+        {/* Job Recs Card */}
+        <Link href="/recommendations" className="block group">
+          <Card className="h-[100px] rounded-xl border-2 transition-all cursor-pointer relative overflow-hidden
+            bg-[var(--im-card-blue-bg)] 
+            border-[var(--im-card-blue-border)] 
+            hover:border-[var(--im-card-blue-text)]
+            flex flex-col justify-center px-6">
+            <div className="relative z-10">
+              <div className="flex items-center gap-3 mb-1">
+                <ClipboardList className="h-6 w-6 stroke-[2.5px] text-[var(--im-card-blue-text)]" />
+                <h3 className="text-[18px] font-semibold text-[var(--im-card-blue-text)]">
+                  Job Recs
+                </h3>
+              </div>
+              <p className="text-[13px] font-normal text-foreground opacity-70">
+                Job load-out helper
+              </p>
+            </div>
+          </Card>
+        </Link>
+
       </section>
+
+      {/* Floating Action Buttons (FABs) */}
+      <div className="fixed bottom-6 left-6 z-50">
+        <Button
+          size="icon"
+          className="h-14 w-14 rounded-full bg-[var(--im-orange-vivid)] hover:bg-[var(--im-orange-vivid)]/90 text-white !border-0 !shadow-none !ring-0 !outline-none"
+          style={{ boxShadow: 'none', border: 'none' }}
+        >
+          <Camera className="h-6 w-6" />
+        </Button>
+      </div>
+
+      <div className="fixed bottom-6 right-6 z-50">
+        <Button
+          size="icon"
+          className="h-14 w-14 rounded-full bg-[var(--im-orange-vivid)] hover:bg-[var(--im-orange-vivid)]/90 text-white !border-0 !shadow-none !ring-0 !outline-none"
+          style={{ boxShadow: 'none', border: 'none' }}
+        >
+          <Mic className="h-6 w-6" />
+        </Button>
+      </div>
 
     </div>
   );
