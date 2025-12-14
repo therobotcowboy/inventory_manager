@@ -62,7 +62,7 @@ export function DebugLogger() {
 
     if (!open) {
         return (
-            <div className="fixed bottom-4 right-4 z-[9999]">
+            <div className="fixed bottom-28 right-4 z-[9999]">
                 <Button
                     variant={logs.find(l => l.type === 'error') ? "destructive" : "secondary"}
                     size="icon"
