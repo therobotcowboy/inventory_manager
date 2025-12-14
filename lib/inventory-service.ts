@@ -180,13 +180,55 @@ export const InventoryService = {
     },
 
     async moveItem(itemName: string, quantity: number, fromLocName?: string, toLocName?: string, transcript: string = "") {
-        // ... (Keep existing move logic roughly same but use new Transaction Logging)
-        // For brevity in this refactor, I'm simplifying to focus on the schema update impacts.
-        // We should ensure MOVING Assets works (Qty 1).
+        const timestamp = new Date().toISOString();
+        console.warn(`[Move] Parse: "${transcript || `Move ${itemName} to ${toLocName}`}"`);
 
-        // TODO: Strict Move logic implementation if needed. For now, rely on basic updateItem logic which handles locks.
-        // Just mocking the return so the file is valid:
-        return { success: true };
+        // 1. Resolve Item
+        console.warn(`[Move] Search: querying DB for name ilike %${itemName}%`);
+        const allItems = await db.items.toArray();
+        const normalize = (s: string) => s.toLowerCase().trim();
+        const query = normalize(itemName);
+
+        let matches = allItems.filter(i => normalize(i.name) === query); // Exact
+        if (matches.length === 0) {
+            matches = allItems.filter(i => normalize(i.name).includes(query)); // Partial
+        }
+
+        console.warn(`[Move] Result: Found ${matches.length} records.`);
+
+        if (matches.length === 0) {
+            console.error(`[Move] Error: Item "${itemName}" not found.`);
+            throw new Error(`Item "${itemName}" not found.`);
+        }
+
+        if (matches.length > 1) {
+            console.error(`[Move] Error: Ambiguous match for "${itemName}". Found: ${matches.map(m => m.name).join(", ")}`);
+            throw new Error(`Ambiguous item "${itemName}". Please be more specific.`);
+        }
+
+        const item = matches[0];
+        console.warn(`[Move] PROCEED with Item ID: ${item.id} (${item.name})`);
+
+        // 2. Resolve Target Location
+        if (!toLocName) {
+            throw new Error("Target location is required for Move.");
+        }
+
+        console.warn(`[Move] Resolving Location: "${toLocName}"`);
+        // Use ensureLocationPath to handle "Van > Shelf A"
+        const toLocId = await this.ensureLocationPath(toLocName);
+        console.warn(`[Move] Resolved Location ID: ${toLocId}`);
+
+        // 3. Execution
+        // If FromLocation specified, validate? (Skipping strict from-check for now to be forgiving)
+
+        await this.updateItem(item.id, { location_id: toLocId });
+        console.warn(`[Move] Updated item location to ${toLocId}`);
+
+        // 4. Log Transaction
+        await this.logTransaction(item.id, 'TRANSFER', 0, `Moved to ${toLocName}`);
+
+        return { success: true, item, isNew: false };
     },
 
     /**

@@ -36,7 +36,7 @@ export interface Item {
   updated_at: string;
 }
 
-export type TransactionType = 'RESTOCK' | 'JOB_USAGE' | 'LOSS' | 'ADJUSTMENT' | 'INITIAL_STOCK' | 'PURCHASE';
+export type TransactionType = 'RESTOCK' | 'JOB_USAGE' | 'LOSS' | 'ADJUSTMENT' | 'INITIAL_STOCK' | 'PURCHASE' | 'TRANSFER';
 
 export interface InventoryTransaction {
   id: string;

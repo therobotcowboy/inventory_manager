@@ -57,7 +57,7 @@ CREATE TABLE inventory_transactions (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
   item_id UUID REFERENCES items(id) ON DELETE SET NULL,
   change_amount NUMERIC NOT NULL,
-  transaction_type TEXT NOT NULL CHECK (transaction_type IN ('RESTOCK', 'JOB_USAGE', 'LOSS', 'ADJUSTMENT', 'INITIAL_STOCK', 'PURCHASE')),
+  transaction_type TEXT NOT NULL CHECK (transaction_type IN ('RESTOCK', 'JOB_USAGE', 'LOSS', 'ADJUSTMENT', 'INITIAL_STOCK', 'PURCHASE', 'TRANSFER')),
   job_reference TEXT,
   timestamp TIMESTAMPTZ DEFAULT NOW()
 );
