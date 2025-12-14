@@ -4,13 +4,11 @@ import { useState, useEffect, useRef } from 'react';
 import { Mic, Square, Loader2, Check, Camera, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
 import { useSpeechRecognition } from '@/hooks/use-speech-recognition';
 import { parseVoiceCommandAction, analyzeImageAction } from '@/app/actions';
-import { ParsedVoiceCommand } from '@/lib/types';
+import { ParsedVoiceCommand, ParsedCommandResult } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { db } from '@/lib/db';
 import { processOfflineQueue } from '@/lib/sync-engine';
@@ -20,7 +18,6 @@ export function VoiceAgent() {
     const { isListening, transcript, startListening, stopListening, resetTranscript, hasRecognitionSupport } = useSpeechRecognition();
 
     const [processing, setProcessing] = useState(false);
-    // const [parsedCommand, setParsedCommand] = useState<ParsedVoiceCommand | null>(null); // No longer needed for the dialog form
     const [isDialogOpen, setIsDialogOpen] = useState(false);
 
     const [clarificationContext, setClarificationContext] = useState<string | null>(null);
@@ -36,61 +33,137 @@ export function VoiceAgent() {
             shouldProcessRef.current = true;
         } else if (shouldProcessRef.current && transcript) {
             shouldProcessRef.current = false;
-            handleProcess(transcript); // Process the auto-stopped transcript
+            handleProcess(transcript);
         }
     }, [isListening, transcript]);
+
+    /**
+     * Helper: Check if specific item name is ambiguous in DB
+     * e.g. "Screws" -> matches "Wood Screws", "Drywall Screws" -> Ambiguous
+     */
+    const checkDbAmbiguity = async (itemName: string): Promise<boolean> => {
+        if (!itemName) return false;
+        // Simple search: If we have > 1 item containing this name, it MIGHT be ambiguous
+        // But if we have an EXACT match, we usually prefer that.
+        // Example: "Screw" -> exact match "Screw"? No. "Wood Screw", "Metal Screw".
+
+        const allItems = await db.items.toArray();
+        const normalize = (s: string) => s.toLowerCase();
+        const query = normalize(itemName);
+
+        // 1. Exact Match?
+        const exact = allItems.find(i => normalize(i.name) === query);
+        if (exact) return false; // Not ambiguous, we found it.
+
+        // 2. Partial Matches
+        const matches = allItems.filter(i => normalize(i.name).includes(query));
+
+        // If query is very short (e.g. "Sc"), many matches, definitely ambiguous.
+        // If user says "Screws" and we have 2 types, yes ambiguous.
+        // If matches > 1, strictly ambiguous.
+        return matches.length > 1;
+    };
 
     const handleProcess = async (textOverride?: string) => {
         const textToProcess = textOverride || inputValue;
         if (!textToProcess) return;
 
         setProcessing(true);
-        // Add User Message to Chat
         setMessages(prev => [...prev, { role: 'user', text: textToProcess }]);
         setInputValue("");
-
-        // Clear Transcript if it came from voice
         resetTranscript();
 
         try {
             let cmdText = textToProcess;
-
-            // Context appending
             if (clarificationContext) {
-                cmdText = `Original Request: "${clarificationContext}". User clarification: "${cmdText}"`;
+                cmdText = `Original Context: "${clarificationContext}". User clarification: "${cmdText}"`;
             }
+
+            // 1. Parse (Returns Array)
+            // Note: analyzeImageAction currently returns Single Command, but we can wrap it.
+            // For text/voice, we use parseVoiceCommandAction which returns { commands: [] }
+
+            // Handle Image vs Text flow? 
+            // This function handles TEXT/VOICE. Image is separate. 
+            // We need to support analyzeImage returning array in future too, but for now let's handle text.
 
             const result = await parseVoiceCommandAction(cmdText);
 
-            if (result.requires_clarification && result.clarification_question) {
-                // System Ask
-                setMessages(prev => [...prev, { role: 'assistant', text: result.clarification_question! }]);
-                setClarificationContext(cmdText); // Update context chain
-                // Re-open/Keep open dialog
+            const { commands } = result;
+            let successCount = 0;
+            let pendingQuestion = "";
+
+            // 2. Plan-Execute Loop
+            for (const cmd of commands) {
+                // A. Check Ambiguity (LLM + DB)
+                let isAmbiguous = cmd.requires_clarification;
+                let question = cmd.clarification_question;
+
+                // If LLM didn't flag it, double check DB (The "Step 3 Code" rule)
+                if (!isAmbiguous && cmd.type !== 'QUERY') { // Queries are safe to be broad
+                    // Only check if it's an existing item reference (UPDATE/REMOVE/MOVE) or ADD if specific?
+                    // Actually, for ADD, ambiguity implies "Which type do I add?".
+                    // For REMOVE, "Remove Screws" -> "Which ones?".
+                    const dbAmbiguous = await checkDbAmbiguity(cmd.item);
+                    if (dbAmbiguous) {
+                        isAmbiguous = true;
+                        question = `I have multiple types of "${cmd.item}". Which one did you mean?`;
+                    }
+                }
+
+                if (isAmbiguous) {
+                    console.log("Ambiguous Command:", cmd);
+                    pendingQuestion = question || "I need clarification.";
+                    // Stop processing further commands? Or skip this one?
+                    // User Rule: "Execute READY commands... Do not execute NEEDS_CLARIFICATION... Ask pending."
+                    // We simply skip execution of this one.
+                } else {
+                    // B. Execute Valid
+                    console.log("Executing Valid:", cmd);
+                    await InventoryService.processCommand(cmd);
+
+                    // User Feedback for this chunk
+                    let msg = "";
+                    if (cmd.type === 'ADD') msg = `✅ Added ${cmd.item}`;
+                    if (cmd.type === 'REMOVE') msg = `✅ Removed ${cmd.item}`;
+                    if (cmd.type === 'MOVE') msg = `✅ Moved ${cmd.item}`;
+                    if (cmd.type === 'QUERY') msg = `🔎 Checked ${cmd.item}`;
+
+                    if (msg) {
+                        setMessages(prev => [...prev, { role: 'assistant', text: msg }]);
+                    }
+                    successCount++;
+                }
+            }
+
+            // 3. Final Summary / Next Steps
+            await processOfflineQueue();
+
+            if (pendingQuestion) {
+                setMessages(prev => [...prev, { role: 'assistant', text: `🛑 ${pendingQuestion}` }]);
+
+                // Smart Context:
+                // Ideally remove successfully executed parts from context? 
+                // Simple approach: Keep the FULL original command, but append "Done: [items]".
+                // Actually, if we just send "Original: [Full Text]", LLM might re-parse everything.
+                // We should probably rely on the User's Next Input + Previous Failure.
+                // Let's set context as the ORIGINAL text, hoping the LLM is smart enough to see "Corrected: Blue Screws" and merge.
+                if (!clarificationContext) {
+                    setClarificationContext(cmdText);
+                }
+
                 setIsDialogOpen(true);
-
-                // Continuous Conversation: Auto-Listen for reply
-                setTimeout(() => {
-                    startListening();
-                }, 100); // Small delay to ensure state updates
+                setTimeout(() => startListening(), 200); // Auto-reply
             } else {
-                // Success
-                setMessages(prev => [...prev, { role: 'assistant', text: `Got it. ${result.type} ${result.item} ${result.location ? 'to ' + result.location : ''}` }]);
-
-                // EXECUTE
-                await InventoryService.processCommand(result);
-
-                // Trigger Sync
-                processOfflineQueue();
-                toast.success(`Processed: ${result.item}`);
-
+                // All Done
+                if (successCount > 0) {
+                    toast.success("Command Processed");
+                }
                 setClarificationContext(null);
-
-                // Auto-Close after delay
                 setTimeout(() => {
                     setIsDialogOpen(false);
-                    setMessages([]); // Reset chat for next time? Or keep history? Resetting feels cleaner given "fresh start"
-                }, 1500);
+                    setMessages([]);
+                }, 2500);
             }
 
         } catch (e: any) {
@@ -104,15 +177,14 @@ export function VoiceAgent() {
     const handleMicClick = () => {
         if (isListening) {
             stopListening();
-            // processing triggered by effect
         } else {
-            setIsDialogOpen(true); // Open UI immediately
+            setIsDialogOpen(true);
             resetTranscript();
             startListening();
         }
     };
 
-    // If dialog closes, reset everything
+    // If dialog closes, reset
     useEffect(() => {
         if (!isDialogOpen) {
             setMessages([]);
@@ -124,7 +196,7 @@ export function VoiceAgent() {
 
     const [isUploading, setIsUploading] = useState(false);
 
-    // Client-side Resize to avoid 4MB Limits and slow uploads
+    // Client-side Resize (Copied from previous version)
     const resizeImage = (file: File): Promise<string> => {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
@@ -134,27 +206,13 @@ export function VoiceAgent() {
                 img.src = event.target?.result as string;
                 img.onload = () => {
                     const canvas = document.createElement('canvas');
-                    const MAX_WIDTH = 800;
-                    const MAX_HEIGHT = 800;
-                    let width = img.width;
-                    let height = img.height;
-
-                    if (width > height) {
-                        if (width > MAX_WIDTH) {
-                            height *= MAX_WIDTH / width;
-                            width = MAX_WIDTH;
-                        }
-                    } else {
-                        if (height > MAX_HEIGHT) {
-                            width *= MAX_HEIGHT / height;
-                            height = MAX_HEIGHT;
-                        }
-                    }
-                    canvas.width = width;
-                    canvas.height = height;
+                    const MAX_WIDTH = 800; const MAX_HEIGHT = 800;
+                    let width = img.width; let height = img.height;
+                    if (width > height) { if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; } }
+                    else { if (height > MAX_HEIGHT) { width *= MAX_HEIGHT / height; height = MAX_HEIGHT; } }
+                    canvas.width = width; canvas.height = height;
                     const ctx = canvas.getContext('2d');
                     ctx?.drawImage(img, 0, 0, width, height);
-                    // Compress to JPEG 0.7 quality
                     resolve(canvas.toDataURL('image/jpeg', 0.7));
                 };
             };
@@ -170,147 +228,80 @@ export function VoiceAgent() {
         toast.info("Compressing & Analyzing...");
 
         try {
-            // 1. Resize/Compress (Critical for mobile photos > 5MB)
             const base64 = await resizeImage(file);
-
-            // 2. Call Server Action
+            // NOTE: analyzeImage currently returns ONE command. 
+            // Ideally we stick to that for Images (usually one main subject).
             const result = await analyzeImageAction(base64);
 
-            // 3. Populate Dialog
             if (result) {
-                // setParsedCommand(result); // Old way
-                // setIsDialogOpen(true); // Old way
-                setMessages(prev => [...prev, { role: 'assistant', text: `I identified: ${result.item}. Quantity: ${result.quantity || 'unknown'}.` }]);
-                toast.success(`Identified: ${result.item}`);
+                setMessages(prev => [...prev, { role: 'assistant', text: `I identified: ${result.item}.` }]);
 
-                // Auto-execute if no clarification needed
+                // Wrap in Array to reuse logic?
+                // Or just keep simple for generic single-item image add
                 if (!result.requires_clarification) {
                     await InventoryService.processCommand(result);
                     processOfflineQueue();
-                    toast.success(`Processed: ${result.item}`);
-                    setTimeout(() => {
-                        setIsDialogOpen(false);
-                        setMessages([]);
-                    }, 1500);
+                    setMessages(prev => [...prev, { role: 'assistant', text: `✅ Added ${result.item}` }]);
+                    setTimeout(() => { setIsDialogOpen(false); setMessages([]); }, 1500);
                 } else {
-                    setMessages(prev => [...prev, { role: 'assistant', text: result.clarification_question! }]);
-                    setClarificationContext(`Image analysis for: ${result.item}`); // Use item as context for clarification
+                    setMessages(prev => [...prev, { role: 'assistant', text: result.clarification_question || "Check details?" }]);
+                    setClarificationContext(`Image of ${result.item}`);
                     setIsDialogOpen(true);
                 }
             }
             setIsUploading(false);
-
         } catch (error: any) {
             console.error("Analysis failed", error);
-            // Check for specific vercel timeouts or size limits
-            if (error.message?.includes("body size")) {
-                toast.error("Image too large, even after compression.");
-            } else {
-                toast.error("Failed to analyze. Check Vercel Logs.");
-            }
+            toast.error("Failed to analyze.");
             setIsUploading(false);
         } finally {
             e.target.value = '';
         }
     };
 
-    if (!hasRecognitionSupport) {
-        return null;
-    }
+    if (!hasRecognitionSupport) return null;
 
     return (
         <>
-            {/* LEFT SIDE: Camera Button */}
-            <div className="fixed bottom-6 left-6 z-50 flex flex-col items-start gap-2 pointer-events-none pb-[env(safe-area-inset-bottom)]">
-                {/* Uploading State Badge */}
+            {/* LEFT SIDE: Camera */}
+            <div className="fixed bottom-6 left-6 z-50 flex flex-col gap-2 pointer-events-none pb-[env(safe-area-inset-bottom)]">
                 {isUploading && (
                     <div className="bg-card border border-border text-card-foreground px-4 py-2 rounded-lg mb-2 text-sm shadow animate-in fade-in slide-in-from-bottom-2 font-medium">
                         <span className="flex items-center gap-2"><Loader2 className="w-3 h-3 animate-spin" /> Analyzing...</span>
                     </div>
                 )}
-
                 <div className="pointer-events-auto relative">
-                    <input
-                        type="file"
-                        accept="image/*"
-                        capture="environment"
-                        className="hidden"
-                        id="camera-input"
-                        onChange={handleImageUpload}
-                        disabled={isUploading || processing}
-                    />
-                    <Button
-                        size="lg"
-                        className={cn(
-                            "h-16 w-16 rounded-full shadow-xl border-4 border-background transition-all duration-300 border-border",
-                            "bg-[var(--im-orange-deep)] text-white hover:opacity-90 border-border"
-                        )}
-                        onClick={() => document.getElementById('camera-input')?.click()}
-                        disabled={isUploading || processing}
-                    >
+                    <input type="file" accept="image/*" capture="environment" className="hidden" id="camera-input" onChange={handleImageUpload} disabled={isUploading || processing} />
+                    <Button size="lg" className="h-16 w-16 rounded-full shadow-xl border-4 border-background bg-[var(--im-orange-deep)] text-white hover:opacity-90" onClick={() => document.getElementById('camera-input')?.click()} disabled={isUploading || processing}>
                         <Camera className="h-8 w-8" />
                     </Button>
                 </div>
             </div>
 
-            {/* RIGHT SIDE: Mic Button & Status */}
+            {/* RIGHT SIDE: Mic */}
             <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-4 pointer-events-none pb-[env(safe-area-inset-bottom)]">
                 <div className="pointer-events-auto">
-                    <Button
-                        size="lg"
-                        onClick={handleMicClick}
-                        className={cn(
-                            "h-16 w-16 rounded-full shadow-xl border-4 border-background transition-all duration-300 border-border",
-                            isListening ? "bg-red-500 hover:bg-red-600 animate-pulse" : "bg-[var(--im-orange-deep)] hover:opacity-90"
-                        )}
-                    >
+                    <Button size="lg" onClick={handleMicClick} className={cn("h-16 w-16 rounded-full shadow-xl border-4 border-background transition-all duration-300", isListening ? "bg-red-500 animate-pulse" : "bg-[var(--im-orange-deep)]")}>
                         {isListening ? <Square className="h-6 w-6 fill-current" /> : <Mic className="h-8 w-8" />}
                     </Button>
                 </div>
             </div>
 
-            {/* CHAT OVERLAY */}
+            {/* CHAT DIALOG */}
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                <DialogContent
-                    className="fixed z-[100] gap-0 p-0 bg-background w-screen h-[100dvh] max-w-none max-h-none m-0 rounded-none border-none flex flex-col overflow-hidden data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-200"
-                    onOpenAutoFocus={e => e.preventDefault()}
-                >
-                    {/* HEADER */}
+                <DialogContent className="fixed z-[100] gap-0 p-0 bg-background w-screen h-[100dvh] max-w-none max-h-none m-0 rounded-none border-none flex flex-col overflow-hidden">
+                    {/* Header */}
                     <div className="p-6 bg-background/80 backdrop-blur-md border-b border-border flex items-center justify-between shrink-0 sticky top-0 z-10 pt-[max(1.5rem,env(safe-area-inset-top))]">
                         <span className="font-semibold text-2xl flex items-center gap-3">
-                            <span className={cn(
-                                "w-3 h-3 rounded-full transition-colors duration-500",
-                                isListening ? "bg-red-500 animate-ping" : "bg-green-500"
-                            )} />
+                            <span className={cn("w-3 h-3 rounded-full transition-colors duration-500", isListening ? "bg-red-500 animate-ping" : "bg-green-500")} />
                             Joe's Agent
                         </span>
-                        <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={() => setIsDialogOpen(false)}
-                            className="h-12 w-12 rounded-full hover:bg-secondary/20"
-                            aria-label="Close Voice Agent"
-                        >
+                        <Button size="icon" variant="ghost" onClick={() => setIsDialogOpen(false)} className="h-12 w-12 rounded-full hover:bg-secondary/20">
                             <X className="h-6 w-6" />
                         </Button>
                     </div>
 
-                    {/* LISTEN OVERLAY (When listening) */}
-                    {isListening && (
-                        <div className="absolute top-32 left-0 w-full flex justify-center pointer-events-none z-0">
-                            <div className="flex gap-1 h-12 items-end">
-                                {[...Array(5)].map((_, i) => (
-                                    <div key={i} className="w-2 bg-primary/20 rounded-full animate-bounce" style={{
-                                        height: '100%',
-                                        animationDuration: '1s',
-                                        animationDelay: `${i * 0.1}s`
-                                    }} />
-                                ))}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* CHAT AREA */}
+                    {/* Messages */}
                     <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-secondary/5">
                         {messages.length === 0 && (
                             <div className="flex flex-col items-center justify-center h-full text-muted-foreground opacity-50">
@@ -318,21 +309,13 @@ export function VoiceAgent() {
                                 <p>Listening...</p>
                             </div>
                         )}
-
                         {messages.map((m, i) => (
                             <div key={i} className={cn("flex w-full", m.role === 'user' ? "justify-end" : "justify-start")}>
-                                <div className={cn(
-                                    "max-w-[80%] p-3 rounded-2xl text-sm md:text-base shadow-sm",
-                                    m.role === 'user'
-                                        ? "bg-primary text-primary-foreground rounded-br-none"
-                                        : "bg-card border text-card-foreground rounded-bl-none"
-                                )}>
+                                <div className={cn("max-w-[80%] p-3 rounded-2xl text-sm md:text-base shadow-sm", m.role === 'user' ? "bg-primary text-primary-foreground rounded-br-none" : "bg-card border text-card-foreground rounded-bl-none")}>
                                     {m.text}
                                 </div>
                             </div>
                         ))}
-
-                        {/* Live Transcript Bubble */}
                         {isListening && transcript && (
                             <div className="flex w-full justify-end">
                                 <div className="max-w-[80%] p-3 rounded-2xl rounded-br-none bg-primary/50 text-primary-foreground/80 animate-pulse italic">
@@ -340,7 +323,6 @@ export function VoiceAgent() {
                                 </div>
                             </div>
                         )}
-
                         {processing && (
                             <div className="flex justify-start">
                                 <div className="bg-card border p-3 rounded-2xl rounded-bl-none flex gap-1 items-center">
@@ -352,31 +334,21 @@ export function VoiceAgent() {
                         )}
                     </div>
 
-                    {/* INPUT AREA */}
+                    {/* Input */}
                     <div className="p-4 bg-background border-t border-border mt-auto shrink-0 flex gap-2 items-end pb-[max(1rem,env(safe-area-inset-bottom))]">
-                        <Input
-                            value={inputValue}
-                            onChange={e => setInputValue(e.target.value)}
-                            placeholder="Type a message..."
-                            className="bg-secondary/20 border border-border focus-visible:ring-1 focus-visible:ring-primary/50 min-h-[44px] py-3 rounded-xl placeholder:text-muted-foreground/70"
-                            onKeyDown={e => {
-                                if (e.key === 'Enter') handleProcess();
-                            }}
-                            aria-label="Voice Agent Input"
-                        />
+                        <Input value={inputValue} onChange={e => setInputValue(e.target.value)} placeholder="Type a message..." className="bg-secondary/20 border border-border focus-visible:ring-1 focus-visible:ring-primary/50 min-h-[44px] py-3 rounded-xl" onKeyDown={e => { if (e.key === 'Enter') handleProcess(); }} />
                         {inputValue ? (
-                            <Button size="icon" onClick={() => handleProcess()} className="shrink-0 h-11 w-11 rounded-xl" aria-label="Send Message">
-                                <Check className="w-5 h-5" />
-                            </Button>
+                            <Button size="icon" onClick={() => handleProcess()} className="shrink-0 h-11 w-11 rounded-xl"><Check className="w-5 h-5" /></Button>
                         ) : (
-                            <Button size="icon" variant={isListening ? "destructive" : "secondary"} onClick={handleMicClick} className="shrink-0 h-11 w-11 rounded-xl" aria-label={isListening ? "Stop Recording" : "Start Recording"}>
+                            <Button size="icon" variant={isListening ? "destructive" : "secondary"} onClick={handleMicClick} className="shrink-0 h-11 w-11 rounded-xl">
                                 {isListening ? <Square className="w-5 h-5 fill-current" /> : <Mic className="w-5 h-5" />}
                             </Button>
                         )}
                     </div>
-
                 </DialogContent>
             </Dialog>
         </>
     );
 }
+
+// TODO: Move types and helpers if file grows too large, but for now this holds the Logic Loop.

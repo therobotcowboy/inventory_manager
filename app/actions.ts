@@ -1,9 +1,9 @@
 'use server'
 
 import { AiService } from '@/lib/gemini';
-import { ParsedVoiceCommand } from '@/lib/types';
+import { ParsedVoiceCommand, ParsedCommandResult } from '@/lib/types';
 
-export async function parseVoiceCommandAction(transcript: string): Promise<ParsedVoiceCommand> {
+export async function parseVoiceCommandAction(transcript: string): Promise<ParsedCommandResult> {
     // Server-side execution keeps the API Key hidden
     return await AiService.parseVoiceCommand(transcript);
 }

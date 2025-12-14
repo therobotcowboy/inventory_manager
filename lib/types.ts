@@ -87,6 +87,10 @@ export interface ParsedVoiceCommand {
   confidence: number;
 }
 
+export interface ParsedCommandResult {
+  commands: ParsedVoiceCommand[];
+}
+
 
 
 
