@@ -10,7 +10,7 @@ import Link from "next/link";
 import { LocationDialog } from '@/components/location-dialog';
 import { SwipeableRow } from "@/components/ui/swipeable-row";
 import { Location } from '@/lib/types';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 import { processOfflineQueue } from '@/lib/sync-engine';
 import { InventoryService } from '@/lib/inventory-service';
 import { DeleteConfirmDialog } from '@/components/delete-confirm-dialog';

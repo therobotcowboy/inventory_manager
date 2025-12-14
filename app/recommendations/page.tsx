@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2, ArrowLeft, Lightbulb, CheckCircle, AlertTriangle } from "lucide-react";
 import Link from "next/link";
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 
 export default function RecommendationsPage() {
     const [jobDescription, setJobDescription] = useState("");

@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Location } from '@/lib/types';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 import { SmartError } from '@/components/ui/smart-error';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/lib/db';

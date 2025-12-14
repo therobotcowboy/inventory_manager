@@ -2,7 +2,7 @@
 import { db, OfflineAction } from './db';
 import { supabase } from './supabase';
 import { liveQuery } from 'dexie';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 
 let isSyncing = false;
 

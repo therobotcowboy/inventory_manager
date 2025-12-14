@@ -149,7 +149,7 @@ export function LocationView({ locationId, onNavigate, onEditItem, onDeleteItem,
                                             <Badge variant="secondary" className="text-xs">
                                                 Qty: {item.quantity}
                                             </Badge>
-                                            {(item.low_stock_threshold !== undefined && item.quantity <= item.low_stock_threshold) && (
+                                            {(item.low_stock_threshold != null && item.quantity <= item.low_stock_threshold) && (
                                                 <Badge variant="destructive" className="flex gap-1 items-center text-[10px] px-1 h-5">
                                                     <AlertTriangle className="w-3 h-3" /> Low Stock
                                                 </Badge>

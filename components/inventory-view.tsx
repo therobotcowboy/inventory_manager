@@ -14,7 +14,7 @@ import { LocationDialog } from '@/components/location-dialog';
 import { SwipeableRow } from "@/components/ui/swipeable-row";
 import { Item, Location } from '@/lib/types';
 import { InventoryService } from '@/lib/inventory-service';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 import { processOfflineQueue } from '@/lib/sync-engine';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { LocationView } from '@/components/hierarchy/location-view';
@@ -54,7 +54,7 @@ export default function InventoryView() {
                 (item.item_type || '').toLowerCase().includes(search.toLowerCase());
 
             // Low Stock
-            const isLow = showLowStockOnly ? (item.low_stock_threshold !== undefined && item.quantity <= item.low_stock_threshold) : true;
+            const isLow = showLowStockOnly ? (item.low_stock_threshold != null && item.quantity <= item.low_stock_threshold) : true;
 
             return matchesSearch && isLow;
         });

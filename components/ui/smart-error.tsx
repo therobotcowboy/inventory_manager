@@ -1,6 +1,6 @@
 "use client"
 
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 import { X, ChevronDown, ChevronUp, AlertCircle } from 'lucide-react';
 import React from 'react';
 

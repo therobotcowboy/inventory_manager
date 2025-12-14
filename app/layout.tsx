@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { SyncManager } from "@/components/sync-manager";
-import { DebugLogger } from "@/components/debug-logger";
+import { DebugListener } from "@/components/debug-listener";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from 'sonner';
 import { Nunito_Sans } from "next/font/google";
@@ -44,10 +44,8 @@ export default function RootLayout({
           <main className="max-w-md mx-auto min-h-screen p-6 relative shadow-2xl bg-background border-x border-border/10 pb-32">
             {children}
             <VoiceAgent />
-            <div className="absolute top-0 right-0 p-2 opacity-50 hover:opacity-100 transition-opacity">
-              {/* Debug Logger only visible in Dev or if needed */}
-              <DebugLogger />
-            </div>
+            {/* Invisible Debug Interceptor */}
+            <DebugListener />
           </main>
         </ThemeProvider>
       </body>

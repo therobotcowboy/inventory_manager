@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, Wrench, Search, AlertTriangle, Loader2, Plus, Pencil, Trash2, MapPin, ClipboardList, Camera, Mic } from "lucide-react";
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 import { processOfflineQueue } from '@/lib/sync-engine';
 import Link from "next/link";
 import { SettingsDialog } from "@/components/settings-dialog";

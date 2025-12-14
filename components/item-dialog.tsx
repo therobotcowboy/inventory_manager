@@ -13,9 +13,10 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { InventoryService } from '@/lib/inventory-service';
 import { Item } from '@/lib/types';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 import { SmartError } from '@/components/ui/smart-error';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/lib/db';
@@ -34,6 +35,7 @@ export function ItemDialog({ open, onOpenChange, initialItem, defaultLocationId 
     const [quantity, setQuantity] = useState(0);
     const [itemType, setItemType] = useState<Item['item_type']>('Part');
     const [lowStockThreshold, setLowStockThreshold] = useState<number>(5);
+    const [trackLowStock, setTrackLowStock] = useState(true);
     const [baseUnit, setBaseUnit] = useState('Ea');
     const [purchaseUnit, setPurchaseUnit] = useState('');
     const [conversionRate, setConversionRate] = useState(1);
@@ -50,7 +52,12 @@ export function ItemDialog({ open, onOpenChange, initialItem, defaultLocationId 
                 setName(initialItem.name);
                 setQuantity(initialItem.quantity);
                 setItemType(initialItem.item_type || 'Part');
+
+                // Track if threshold is defined (non-null)
+                const hasThreshold = initialItem.low_stock_threshold !== undefined && initialItem.low_stock_threshold !== null;
+                setTrackLowStock(hasThreshold);
                 setLowStockThreshold(initialItem.low_stock_threshold || 5);
+
                 setBaseUnit(initialItem.base_unit || 'Ea');
                 setPurchaseUnit(initialItem.purchase_unit || '');
                 setConversionRate(initialItem.conversion_rate || 1);
@@ -59,6 +66,7 @@ export function ItemDialog({ open, onOpenChange, initialItem, defaultLocationId 
                 setName('');
                 setQuantity(0);
                 setItemType('Part');
+                setTrackLowStock(true); // Default ON for new items (unless changed by type selection logic later)
                 setLowStockThreshold(5);
                 setBaseUnit('Ea');
                 setPurchaseUnit('');
@@ -76,13 +84,16 @@ export function ItemDialog({ open, onOpenChange, initialItem, defaultLocationId 
 
         setLoading(true);
         try {
+            // Logic: If trackLowStock is OFF, send undefined/null
+            const finalThreshold = (trackLowStock && (itemType === 'Part' || itemType === 'Consumable')) ? lowStockThreshold : undefined;
+
             if (initialItem) {
                 // Edit
                 await InventoryService.updateItem(initialItem.id, {
                     name: name.trim(),
                     quantity: Number(quantity),
                     item_type: itemType,
-                    low_stock_threshold: (itemType === 'Part' || itemType === 'Consumable') ? lowStockThreshold : undefined,
+                    low_stock_threshold: finalThreshold,
                     location_id: locationId || undefined,
                     base_unit: baseUnit,
                     purchase_unit: purchaseUnit,
@@ -95,7 +106,7 @@ export function ItemDialog({ open, onOpenChange, initialItem, defaultLocationId 
                     name: name.trim(),
                     quantity: Number(quantity),
                     item_type: itemType,
-                    low_stock_threshold: (itemType === 'Part' || itemType === 'Consumable') ? lowStockThreshold : undefined,
+                    low_stock_threshold: finalThreshold,
                     location_id: locationId || undefined,
                     base_unit: baseUnit,
                     purchase_unit: purchaseUnit,
@@ -133,7 +144,12 @@ export function ItemDialog({ open, onOpenChange, initialItem, defaultLocationId 
                         {/* Type Select */}
                         <div className="grid gap-2">
                             <Label htmlFor="type" className="px-6 text-xs font-bold uppercase text-muted-foreground tracking-widest">Item Type</Label>
-                            <Select value={itemType} onValueChange={(v: any) => setItemType(v)}>
+                            <Select value={itemType} onValueChange={(v: any) => {
+                                setItemType(v);
+                                // Auto-Config: Tools default to OFF, others ON
+                                if (v === 'Tool') setTrackLowStock(false);
+                                else setTrackLowStock(true);
+                            }}>
                                 <SelectTrigger className="text-lg h-16 px-6 rounded-none border-x-0 border-t-0 border-b border-border/50 bg-secondary/5 focus:ring-0 shadow-none">
                                     <SelectValue placeholder="Select Type" />
                                 </SelectTrigger>
@@ -232,19 +248,29 @@ export function ItemDialog({ open, onOpenChange, initialItem, defaultLocationId 
                         {/* Low Stock Threshold (Conditional) */}
                         {(itemType === 'Part' || itemType === 'Consumable') && (
                             <div className="grid gap-2 animate-in slide-in-from-top-2 mt-4">
-                                <Label htmlFor="threshold" className="px-6 text-xs font-bold uppercase text-destructive tracking-widest">
-                                    Low Stock Warning At
-                                </Label>
-                                <div className="flex items-center px-6 gap-4">
-                                    <Input
-                                        id="threshold"
-                                        type="number"
-                                        value={lowStockThreshold || ''}
-                                        onChange={(e) => setLowStockThreshold(Number(e.target.value))}
-                                        placeholder="Default: 5"
-                                        className="text-lg h-16 rounded-none border-x-0 border-t-0 border-b border-border/50 bg-destructive/5 focus-visible:ring-0 focus-visible:bg-destructive/10 transition-colors flex-1"
+                                <div className="flex items-center justify-between px-6">
+                                    <Label htmlFor="track-stock" className="text-xs font-bold uppercase text-muted-foreground tracking-widest">
+                                        Track Low Stock
+                                    </Label>
+                                    <Switch
+                                        id="track-stock"
+                                        checked={trackLowStock}
+                                        onCheckedChange={setTrackLowStock}
                                     />
                                 </div>
+
+                                {trackLowStock && (
+                                    <div className="flex items-center px-6 gap-4 animate-in fade-in duration-300">
+                                        <Input
+                                            id="threshold"
+                                            type="number"
+                                            value={lowStockThreshold || ''}
+                                            onChange={(e) => setLowStockThreshold(Number(e.target.value))}
+                                            placeholder="Default: 5"
+                                            className="text-lg h-16 rounded-none border-x-0 border-t-0 border-b border-border/50 bg-destructive/5 focus-visible:ring-0 focus-visible:bg-destructive/10 transition-colors flex-1"
+                                        />
+                                    </div>
+                                )}
                             </div>
                         )}
 

@@ -11,7 +11,7 @@ import { useState } from "react";
 import { ItemDialog } from '@/components/item-dialog';
 import { Item, Location } from '@/lib/types';
 import { InventoryService } from '@/lib/inventory-service';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 import { processOfflineQueue } from '@/lib/sync-engine';
 import { useParams, useRouter } from 'next/navigation';
 import {

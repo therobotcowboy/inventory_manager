@@ -5,11 +5,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Button } from "@/components/ui/button";
 import { Settings, Trash2, Database, Info, GitBranch } from "lucide-react";
 import { db } from "@/lib/db";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { Badge } from "@/components/ui/badge";
 
 import { useLiveQuery } from "dexie-react-hooks";
 import { APP_METADATA } from "@/lib/constants";
+import { DebugConsole } from "./debug-console";
 
 export function SettingsDialog() {
     const [open, setOpen] = useState(false);
@@ -68,6 +69,13 @@ export function SettingsDialog() {
                                 </span>
                             </div>
                         </div>
+                    </div>
+
+
+                    {/* Debug Console */}
+                    <div className="space-y-3">
+                        <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">System Terminal</h4>
+                        <DebugConsole />
                     </div>
 
                     {/* DANGER ZONE */}
