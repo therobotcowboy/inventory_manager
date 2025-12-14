@@ -257,8 +257,8 @@ export function ItemDialog({ open, onOpenChange, initialItem, defaultLocationId 
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="unassigned">Unassigned</SelectItem>
-                                    <SelectItem disabled value="separator" className="text-xs font-bold opacity-50 pl-2">-- Containers & Areas --</SelectItem>
-                                    {locations?.filter(l => l.type === 'AREA' || l.type === 'CONTAINER').map(loc => (
+                                    <SelectItem disabled value="separator" className="text-xs font-bold opacity-50 pl-2">-- All Locations --</SelectItem>
+                                    {locations?.map(loc => (
                                         <SelectItem key={loc.id} value={loc.id}>
                                             <div className="flex items-center gap-2">
                                                 <span>{loc.name}</span>

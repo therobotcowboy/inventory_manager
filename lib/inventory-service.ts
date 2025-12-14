@@ -197,6 +197,15 @@ export const InventoryService = {
         console.warn(`[Move] Result: Found ${matches.length} records.`);
 
         if (matches.length === 0) {
+            // Physics Check: Did they try to move a Location?
+            const locCheck = await db.locations.where('name').equalsIgnoreCase(itemName).first();
+            if (locCheck) {
+                if (locCheck.type === 'ROOT' || locCheck.type === 'LOCATION') {
+                    throw new Error(`Cannot move a building or vehicle ("${locCheck.name}")!`);
+                }
+                throw new Error(`Cannot move a location ("${locCheck.name}").`);
+            }
+
             console.error(`[Move] Error: Item "${itemName}" not found.`);
             throw new Error(`Item "${itemName}" not found.`);
         }
@@ -253,22 +262,32 @@ export const InventoryService = {
         if (parts.length === 0) throw new Error("Invalid location path");
 
         let parentId: string | undefined = undefined;
+        const normalize = (str: string) => str.toLowerCase().replace(/[^a-z0-9 ]/g, '').trim();
 
         for (const locName of parts) {
             const allLocs = await db.locations.toArray();
+            const search = normalize(locName);
+
             let match = allLocs.find(l =>
-                l.name.toLowerCase() === locName.toLowerCase() &&
+                normalize(l.name) === search &&
                 l.parent_id === ((parentId === undefined) ? null : parentId)
             );
 
             if (!match) {
+                // Try fuzzy if exact path fail? No, strict path creation is safer.
+                // But if "Van" matches "Van", we are good.
                 const newLoc: Location = {
                     id: crypto.randomUUID(),
-                    name: locName,
-                    type: parentId ? 'CONTAINER' : 'AREA',
-                    parent_id: parentId || undefined // db types say optional, schema says parent_id
+                    name: locName, // Keep original casing
+                    type: parentId ? 'CONTAINER' : 'LOCATION', // Default to LOCATION for root roots? or ROOT?
+                    // Actually, if it's the first item and we create it... 
+                    // Best guess: If no parent, it's a ROOT/LOCATION. 
+                    parent_id: parentId || undefined
                 };
-                // Force cast if lint complains about id presence/absence logic in Dexie types
+
+                // Correction: If we create a root on the fly via voice, make it LOCATION.
+                if (!parentId) newLoc.type = 'LOCATION';
+
                 await db.locations.add(newLoc);
                 await db.offlineQueue.add({
                     timestamp: new Date().toISOString(), type: 'SYNC_PUSH', synced: false,
