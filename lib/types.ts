@@ -26,7 +26,7 @@ export interface Item {
   conversion_rate?: number; // Defaults to 1
 
   location_id?: string; // Should reference a Container or Area
-  low_stock_threshold?: number; // Only for Parts/Consumables
+  low_stock_threshold?: number | null; // Only for Parts/Consumables
   image_url?: string;
 
   // Search

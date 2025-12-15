@@ -84,8 +84,8 @@ export function ItemDialog({ open, onOpenChange, initialItem, defaultLocationId 
 
         setLoading(true);
         try {
-            // Logic: If trackLowStock is OFF, send undefined/null
-            const finalThreshold = trackLowStock ? lowStockThreshold : undefined;
+            // Logic: If trackLowStock is OFF, send explicit null to clear DB value
+            const finalThreshold = trackLowStock ? lowStockThreshold : null;
 
             if (initialItem) {
                 // Edit
