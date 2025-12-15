@@ -1,5 +1,6 @@
 import { db } from './db';
 import { ParsedVoiceCommand, Item, Location, InventoryTransaction, TransactionType } from './types';
+import { classifyItem } from './classifier';
 
 export const InventoryService = {
     /**
@@ -330,13 +331,20 @@ export const InventoryService = {
             }
 
             isNew = true;
+            isNew = true;
+
+            // Intelligent Classification
+            const classification = classifyItem(command.item);
+            console.log(`[Voice] Classified "${command.item}" as ${classification.predictedType} (Asset: ${classification.isAsset})`);
+
             targetItem = {
                 id: crypto.randomUUID(),
                 name: command.item,
-                quantity: 0,
+                quantity: classification.defaultQuantity, // 0 or 1
                 updated_at: timestamp,
-                low_stock_threshold: 10,
-                item_type: 'Part',
+                low_stock_threshold: classification.defaultThreshold,
+                item_type: classification.predictedType,
+                is_asset: classification.isAsset,
                 base_unit: 'Ea',
                 location_id: targetLocId
             };

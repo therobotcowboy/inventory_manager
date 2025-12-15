@@ -22,6 +22,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/lib/db';
 import { Loader2 } from 'lucide-react';
 import { processOfflineQueue } from '@/lib/sync-engine';
+import { classifyItem } from '@/lib/classifier';
 
 interface ItemDialogProps {
     open: boolean;
@@ -44,6 +45,21 @@ export function ItemDialog({ open, onOpenChange, initialItem, defaultLocationId 
 
     // Fetch locations
     const locations = useLiveQuery(() => db.locations.toArray());
+
+    // Auto-Classification Effect
+    useEffect(() => {
+        if (!open || initialItem || !name) return;
+
+        // Debounce or just run? React 18 handles strict mode fast enough usually.
+        // We only want to trigger this if the user hasn't manually locked a type? 
+        // For now, simplicity: If the name strongly matches a known type, suggest it.
+        const result = classifyItem(name);
+        if (result.confidence === 'HIGH') {
+            setItemType(result.predictedType);
+            setTrackLowStock(!result.isAsset); // Tools = Off, Others = On
+            setLowStockThreshold(result.defaultThreshold || 5);
+        }
+    }, [name, open, initialItem]);
 
     // Reset form when dialog opens/closes or initialItem changes
     useEffect(() => {
