@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
-import { getJobRecommendationsAction } from '../actions';
+
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -14,9 +14,9 @@ import { toast } from '@/lib/toast';
 export default function RecommendationsPage() {
     const [jobDescription, setJobDescription] = useState("");
     const [loading, setLoading] = useState(false);
-    const [result, setResult] = useState<any>(null);
+    const [streamedItems, setStreamedItems] = useState<any[]>([]);
 
-    // Fetch local inventory
+    // Fetch local inventory for matching
     const items = useLiveQuery(() => db.items.toArray());
 
     const handleGetAdvice = async () => {
@@ -24,41 +24,82 @@ export default function RecommendationsPage() {
             toast.warning("Please describe the job first.");
             return;
         }
-        // Removed Blocking Check for Empty Inventory
 
         setLoading(true);
-        setResult(null);
+        setStreamedItems([]); // Clear previous results
 
         try {
-            // Step 1: Get Ideal Loadout (Stateless)
-            const data = await getJobRecommendationsAction(jobDescription);
+            const response = await fetch('/api/generate-recs', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ jobDescription })
+            });
 
-            // Step 2: Client-side Matching
-            if (data.required_items) {
-                const processedItems = data.required_items.map((req: any) => {
-                    const reqName = req.name.toLowerCase();
-                    // Fuzzy match: check if we have an item that contains the required name
-                    // In real app, might want smarter fuzzy logic or vector search
-                    const match = items?.find(i =>
-                        i.name.toLowerCase().includes(reqName) ||
-                        reqName.includes(i.name.toLowerCase())
-                    );
+            if (!response.ok) throw new Error("Network error");
+            if (!response.body) throw new Error("No response body");
 
-                    return {
-                        ...req,
-                        status: match ? 'READY' : 'MISSING',
-                        match: match ? match : null
-                    };
-                });
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = "";
 
-                // Sort: Missing first, then Ready
-                data.processed_items = processedItems.sort((a: any, b: any) =>
-                    (a.status === 'MISSING' ? -1 : 1) - (b.status === 'MISSING' ? -1 : 1)
-                );
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split("\n");
+                // Keep the last part in buffer if it's not a complete line (doesn't end in newline)
+                // However, split logic means the last element is the remainder. 
+                // If the chunk ended exactly on newline, last element is empty string.
+                buffer = lines.pop() || "";
+
+                for (const line of lines) {
+                    if (!line.trim()) continue;
+
+                    // CSV Parse: ItemName|Reason
+                    const parts = line.split("|");
+                    if (parts.length >= 2) {
+                        const name = parts[0].trim();
+                        const reason = parts[1].trim();
+
+                        // Real-time Match
+                        const match = items?.find(i =>
+                            i.name.toLowerCase().includes(name.toLowerCase()) ||
+                            name.toLowerCase().includes(i.name.toLowerCase())
+                        );
+
+                        const newItem = {
+                            name,
+                            reason,
+                            status: match ? 'READY' : 'MISSING',
+                            match: match || null
+                        };
+
+                        setStreamedItems(prev => {
+                            const newSet = [...prev, newItem];
+                            // Sort on update: Missing first
+                            return newSet.sort((a, b) =>
+                                (a.status === 'MISSING' ? -1 : 1) - (b.status === 'MISSING' ? -1 : 1)
+                            );
+                        });
+                    }
+                }
             }
 
-            setResult(data);
-            toast.success("Planner Ready");
+            // Flush remaining buffer
+            if (buffer.trim()) {
+                const line = buffer;
+                const parts = line.split("|");
+                if (parts.length >= 2) {
+                    const name = parts[0].trim();
+                    const reason = parts[1].trim();
+                    const match = items?.find(i => i.name.toLowerCase().includes(name.toLowerCase()) || name.toLowerCase().includes(i.name.toLowerCase()));
+                    setStreamedItems(prev => [...prev, { name, reason, status: match ? 'READY' : 'MISSING', match: match || null }]);
+                }
+            }
+
+            toast.success("Analysis Complete");
+
         } catch (error) {
             console.error(error);
             toast.error("Failed to get recommendations.");
@@ -78,7 +119,7 @@ export default function RecommendationsPage() {
                 </Link>
                 <div>
                     <h1 className="text-2xl font-bold tracking-tight text-white">Job Planner</h1>
-                    <p className="text-muted-foreground text-sm">AI Tool Checklist</p>
+                    <p className="text-muted-foreground text-sm">Instant Loadout Generator</p>
                 </div>
             </div>
 
@@ -90,12 +131,12 @@ export default function RecommendationsPage() {
                         What's the job?
                     </CardTitle>
                     <CardDescription>
-                        Generate a pro loadout list and check what you have.
+                        Streaming AI will generate your checklist instantly.
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <Textarea
-                        placeholder="e.g. Installing a ceiling fan in a drywall ceiling..."
+                        placeholder="e.g. Installing a ceiling fan..."
                         className="bg-background/50 border-white/10 min-h-[100px]"
                         value={jobDescription}
                         onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setJobDescription(e.target.value)}
@@ -104,12 +145,12 @@ export default function RecommendationsPage() {
                         className="w-full bg-blue-600 hover:bg-blue-500"
                         size="lg"
                         onClick={handleGetAdvice}
-                        disabled={loading}
+                        disabled={loading && streamedItems.length === 0} // Only disable initial load, allow appending
                     >
                         {loading ? (
                             <>
                                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                Planning Job...
+                                Planning...
                             </>
                         ) : (
                             "Generate Loadout"
@@ -119,66 +160,50 @@ export default function RecommendationsPage() {
             </Card>
 
             {/* Results Section */}
-            {result && (
+            {streamedItems.length > 0 && (
                 <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
-
-                    {/* Advice Card */}
-                    {result.advice && (
-                        <Card className="bg-blue-500/10 border-blue-500/20">
-                            <CardContent className="pt-6">
-                                <p className="text-blue-200 italic">"{result.advice}"</p>
-                            </CardContent>
-                        </Card>
-                    )}
-
-                    {/* Planner List */}
                     <div>
                         <h3 className="text-lg font-semibold mb-3 flex items-center gap-2 text-white">
-                            Required Items
+                            Required Items ({streamedItems.length})
                         </h3>
 
-                        {result.processed_items && result.processed_items.length > 0 ? (
-                            <div className="grid gap-3">
-                                {result.processed_items.map((item: any, idx: number) => (
-                                    <div key={idx} className={`border border-l-4 p-4 rounded-r-lg flex justify-between items-center ${item.status === 'READY'
-                                            ? 'bg-card border-white/5 border-l-green-500'
-                                            : 'bg-card border-white/5 border-l-orange-500'
-                                        }`}>
-                                        <div>
-                                            <h4 className="font-bold text-white flex items-center gap-2">
-                                                {item.name}
-                                                {item.status === 'READY' && (
-                                                    <span className="text-[10px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded uppercase tracking-wider">
-                                                        Ready
-                                                    </span>
-                                                )}
-                                                {item.status === 'MISSING' && (
-                                                    <span className="text-[10px] bg-orange-500/20 text-orange-400 px-1.5 py-0.5 rounded uppercase tracking-wider">
-                                                        Missing
-                                                    </span>
-                                                )}
-                                            </h4>
-                                            <p className="text-sm text-muted-foreground">{item.reason}</p>
-
-                                            {/* Location Hint if Ready */}
-                                            {item.status === 'READY' && item.match && item.match.location_id && (
-                                                <p className="text-xs text-green-500/80 mt-1 flex items-center gap-1">
-                                                    <CheckCircle className="w-3 h-3" /> In Inventory
-                                                </p>
+                        <div className="grid gap-3">
+                            {streamedItems.map((item: any, idx: number) => (
+                                <div key={idx} className={`border border-l-4 p-4 rounded-r-lg flex justify-between items-center animate-in slide-in-from-left-2 duration-300 ${item.status === 'READY'
+                                    ? 'bg-card border-white/5 border-l-green-500'
+                                    : 'bg-card border-white/5 border-l-orange-500'
+                                    }`}>
+                                    <div>
+                                        <h4 className="font-bold text-white flex items-center gap-2">
+                                            {item.name}
+                                            {item.status === 'READY' && (
+                                                <span className="text-[10px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded uppercase tracking-wider">
+                                                    Ready
+                                                </span>
                                             )}
-                                        </div>
+                                            {item.status === 'MISSING' && (
+                                                <span className="text-[10px] bg-orange-500/20 text-orange-400 px-1.5 py-0.5 rounded uppercase tracking-wider">
+                                                    Missing
+                                                </span>
+                                            )}
+                                        </h4>
+                                        <p className="text-sm text-muted-foreground">{item.reason}</p>
 
-                                        {item.status === 'MISSING' && (
-                                            <Button size="sm" variant="outline" onClick={() => toast.info("Added to Shopping List (Sim)")}>
-                                                Add
-                                            </Button>
+                                        {item.status === 'READY' && item.match && (
+                                            <p className="text-xs text-green-500/80 mt-1 flex items-center gap-1">
+                                                <CheckCircle className="w-3 h-3" /> In Inventory
+                                            </p>
                                         )}
                                     </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="text-muted-foreground italic">No specific items generated.</div>
-                        )}
+
+                                    {item.status === 'MISSING' && (
+                                        <Button size="sm" variant="outline" onClick={() => toast.info("Shop List Check")}>
+                                            Add
+                                        </Button>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
                     </div>
                 </div>
             )}

@@ -8,9 +8,7 @@ export async function parseVoiceCommandAction(transcript: string): Promise<Parse
     return await AiService.parseVoiceCommand(transcript);
 }
 
-export async function getJobRecommendationsAction(jobDescription: string) {
-    return await AiService.getIdealLoadout(jobDescription);
-}
+
 
 export async function analyzeImageAction(imageBase64: string): Promise<ParsedVoiceCommand> {
     // This runs on server, keeps keys safe.

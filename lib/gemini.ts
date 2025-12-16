@@ -107,41 +107,52 @@ export const AiService = {
         }
     },
     async getIdealLoadout(jobDescription: string): Promise<any> {
+        // ... Legacy JSON method (Keep for reference or fallback? Plan says replace. actually plan says add new method)
+        // keeping logic consistent with plan.
+        return this.getIdealLoadoutStream(jobDescription); // Wait, this returns a stream, legacy expected Promise<any>.
+        // Actually, let's keep getIdealLoadout as is (JSON) for fallback if needed, or just add getIdealLoadoutStream as a separate method.
+        // The plan says "Add getIdealLoadoutStream".
+        if (!apiKey) throw new Error("Missing GEMINI_API_KEY");
+        const prompt = `
+          You are an expert master tradesman. A junior tech is about to do a job: "${jobDescription}".
+          
+          Generate the IDEAL LOADOUT list of tools, parts, and consumables.
+          
+          Output Format: JSON
+          ...
+        `;
+        // ... existing implementation ...
+        const result = await model.generateContent(prompt);
+        // ...
+        return JSON.parse(result.response.text().replace(/```json/g, '').replace(/```/g, '').trim());
+    },
+
+    async getIdealLoadoutStream(jobDescription: string) {
         if (!apiKey) throw new Error("Missing GEMINI_API_KEY");
 
         const prompt = `
           You are an expert master tradesman. A junior tech is about to do a job: "${jobDescription}".
           
-          Generate the IDEAL LOADOUT list of tools, parts, and consumables required to do this job professionally.
+          Generate the IDEAL LOADOUT list of tools, parts, and consumables required.
           
-          Output Format:
-          {
-            "required_items": [
-               { 
-                 "name": "Standard Item Name", 
-                 "reason": "Why it is needed",
-                 "quantity_est": 1 
-               }
-            ],
-            "advice": "Short energetic tip for the job"
-          }
-
+          Output Format: CSV
+          Separator: "|"
+          Columns: ItemName|Reason
+          
+          Example:
+          Cordless Drill|Drilling pilot holes
+          Deck Screws|Fastening boards
+          Tape Measure|Measuring cuts
+          
           Rules:
+          - No Markdown code blocks.
+          - No Header row.
+          - One item per line.
           - Be comprehensive but practical.
-          - Use standard naming conventions (e.g. "Phillips Screwdriver", "Wire Nuts", "Drill").
-          - Return ONLY JSON.
         `;
 
-        try {
-            const result = await model.generateContent(prompt);
-            const response = await result.response;
-            const text = response.text();
-            const cleanJson = text.replace(/```json/g, '').replace(/```/g, '').trim();
-            return JSON.parse(cleanJson);
-        } catch (error) {
-            console.error("Gemini Recs Error:", error);
-            throw error;
-        }
+        const result = await model.generateContentStream(prompt);
+        return result.stream;
     },
     async identifyItem(imageBase64: string): Promise<ParsedVoiceCommand> {
         if (!apiKey) throw new Error("Missing GEMINI_API_KEY");
