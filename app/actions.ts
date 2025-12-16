@@ -8,8 +8,8 @@ export async function parseVoiceCommandAction(transcript: string): Promise<Parse
     return await AiService.parseVoiceCommand(transcript);
 }
 
-export async function getJobRecommendationsAction(inventory: any[], jobDescription: string) {
-    return await AiService.getRecommendations(inventory, jobDescription);
+export async function getJobRecommendationsAction(jobDescription: string) {
+    return await AiService.getIdealLoadout(jobDescription);
 }
 
 export async function analyzeImageAction(imageBase64: string): Promise<ParsedVoiceCommand> {

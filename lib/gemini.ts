@@ -106,29 +106,29 @@ export const AiService = {
             throw error;
         }
     },
-    async getRecommendations(inventory: any[], jobDescription: string): Promise<any> {
+    async getIdealLoadout(jobDescription: string): Promise<any> {
         if (!apiKey) throw new Error("Missing GEMINI_API_KEY");
 
         const prompt = `
           You are an expert master tradesman. A junior tech is about to do a job: "${jobDescription}".
           
-          Here is their current inventory (TOOLBOX/VAN):
-          ${JSON.stringify(inventory.map(i => `${i.name} (Qty: ${i.quantity})`), null, 2)}
-
-          Analyze the job requirements vs the inventory.
-          Return a JSON object with a list of "missing_items" that they absolutely need but don't have (or have 0 of).
+          Generate the IDEAL LOADOUT list of tools, parts, and consumables required to do this job professionally.
           
           Output Format:
           {
-            "missing_items": [
-               { "name": "Tool Name", "reason": "Why it is needed" }
+            "required_items": [
+               { 
+                 "name": "Standard Item Name", 
+                 "reason": "Why it is needed",
+                 "quantity_est": 1 
+               }
             ],
             "advice": "Short energetic tip for the job"
           }
 
           Rules:
-          - Only list ESSENTIAL missing items.
-          - If they have it, DO NOT list it.
+          - Be comprehensive but practical.
+          - Use standard naming conventions (e.g. "Phillips Screwdriver", "Wire Nuts", "Drill").
           - Return ONLY JSON.
         `;
 

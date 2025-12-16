@@ -24,18 +24,41 @@ export default function RecommendationsPage() {
             toast.warning("Please describe the job first.");
             return;
         }
-        if (!items || items.length === 0) {
-            toast.warning("Your inventory is empty! Add tools first.");
-            return;
-        }
+        // Removed Blocking Check for Empty Inventory
 
         setLoading(true);
         setResult(null);
 
         try {
-            const data = await getJobRecommendationsAction(items, jobDescription);
+            // Step 1: Get Ideal Loadout (Stateless)
+            const data = await getJobRecommendationsAction(jobDescription);
+
+            // Step 2: Client-side Matching
+            if (data.required_items) {
+                const processedItems = data.required_items.map((req: any) => {
+                    const reqName = req.name.toLowerCase();
+                    // Fuzzy match: check if we have an item that contains the required name
+                    // In real app, might want smarter fuzzy logic or vector search
+                    const match = items?.find(i =>
+                        i.name.toLowerCase().includes(reqName) ||
+                        reqName.includes(i.name.toLowerCase())
+                    );
+
+                    return {
+                        ...req,
+                        status: match ? 'READY' : 'MISSING',
+                        match: match ? match : null
+                    };
+                });
+
+                // Sort: Missing first, then Ready
+                data.processed_items = processedItems.sort((a: any, b: any) =>
+                    (a.status === 'MISSING' ? -1 : 1) - (b.status === 'MISSING' ? -1 : 1)
+                );
+            }
+
             setResult(data);
-            toast.success("Analysis Complete");
+            toast.success("Planner Ready");
         } catch (error) {
             console.error(error);
             toast.error("Failed to get recommendations.");
@@ -54,8 +77,8 @@ export default function RecommendationsPage() {
                     </Button>
                 </Link>
                 <div>
-                    <h1 className="text-2xl font-bold tracking-tight text-white">Job Advisor</h1>
-                    <p className="text-muted-foreground text-sm">AI-powered tool check</p>
+                    <h1 className="text-2xl font-bold tracking-tight text-white">Job Planner</h1>
+                    <p className="text-muted-foreground text-sm">AI Tool Checklist</p>
                 </div>
             </div>
 
@@ -67,7 +90,7 @@ export default function RecommendationsPage() {
                         What's the job?
                     </CardTitle>
                     <CardDescription>
-                        Describe what you're doing, and I'll check if you have the tools.
+                        Generate a pro loadout list and check what you have.
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -86,10 +109,10 @@ export default function RecommendationsPage() {
                         {loading ? (
                             <>
                                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                Analyzing Inventory...
+                                Planning Job...
                             </>
                         ) : (
-                            "Check My Toolkit"
+                            "Generate Loadout"
                         )}
                     </Button>
                 </CardContent>
@@ -108,34 +131,55 @@ export default function RecommendationsPage() {
                         </Card>
                     )}
 
-                    {/* Missing Items */}
+                    {/* Planner List */}
                     <div>
                         <h3 className="text-lg font-semibold mb-3 flex items-center gap-2 text-white">
-                            <AlertTriangle className="h-5 w-5 text-orange-500" />
-                            Missing Items
+                            Required Items
                         </h3>
-                        {result.missing_items && result.missing_items.length > 0 ? (
+
+                        {result.processed_items && result.processed_items.length > 0 ? (
                             <div className="grid gap-3">
-                                {result.missing_items.map((item: any, idx: number) => (
-                                    <div key={idx} className="bg-card border border-l-4 border-l-orange-500 border-white/5 p-4 rounded-r-lg flex justify-between items-center">
+                                {result.processed_items.map((item: any, idx: number) => (
+                                    <div key={idx} className={`border border-l-4 p-4 rounded-r-lg flex justify-between items-center ${item.status === 'READY'
+                                            ? 'bg-card border-white/5 border-l-green-500'
+                                            : 'bg-card border-white/5 border-l-orange-500'
+                                        }`}>
                                         <div>
-                                            <h4 className="font-bold text-white">{item.name}</h4>
+                                            <h4 className="font-bold text-white flex items-center gap-2">
+                                                {item.name}
+                                                {item.status === 'READY' && (
+                                                    <span className="text-[10px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded uppercase tracking-wider">
+                                                        Ready
+                                                    </span>
+                                                )}
+                                                {item.status === 'MISSING' && (
+                                                    <span className="text-[10px] bg-orange-500/20 text-orange-400 px-1.5 py-0.5 rounded uppercase tracking-wider">
+                                                        Missing
+                                                    </span>
+                                                )}
+                                            </h4>
                                             <p className="text-sm text-muted-foreground">{item.reason}</p>
+
+                                            {/* Location Hint if Ready */}
+                                            {item.status === 'READY' && item.match && item.match.location_id && (
+                                                <p className="text-xs text-green-500/80 mt-1 flex items-center gap-1">
+                                                    <CheckCircle className="w-3 h-3" /> In Inventory
+                                                </p>
+                                            )}
                                         </div>
-                                        <Button size="sm" variant="outline" onClick={() => toast.info("Shopping List feature coming soon!")}>
-                                            Add
-                                        </Button>
+
+                                        {item.status === 'MISSING' && (
+                                            <Button size="sm" variant="outline" onClick={() => toast.info("Added to Shopping List (Sim)")}>
+                                                Add
+                                            </Button>
+                                        )}
                                     </div>
                                 ))}
                             </div>
                         ) : (
-                            <div className="bg-green-500/10 border border-green-500/20 p-6 rounded-lg text-center">
-                                <CheckCircle className="h-8 w-8 text-green-500 mx-auto mb-2" />
-                                <p className="text-green-400 font-medium">You have everything you need!</p>
-                            </div>
+                            <div className="text-muted-foreground italic">No specific items generated.</div>
                         )}
                     </div>
-
                 </div>
             )}
         </div>
