@@ -159,6 +159,18 @@
     @apply border-border outline-ring/50;
   }
 
+  html,
+  body {
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    /* Prevents body from scrolling */
+    overscroll-behavior: none;
+    /* Kills the "rubber band" effect */
+    touch-action: pan-x pan-y;
+    /* Disables double-tap to zoom */
+  }
+
   body {
     @apply bg-background text-foreground;
   }

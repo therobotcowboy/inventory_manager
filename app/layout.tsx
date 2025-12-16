@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { SyncManager } from "@/components/sync-manager";
 import { DebugListener } from "@/components/debug-listener";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -18,6 +18,13 @@ export const metadata: Metadata = {
   description: "AI-powered inventory management.",
 };
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -27,7 +34,7 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body
         className={cn(
-          "min-h-screen bg-background font-sans antialiased text-foreground",
+          "h-[100dvh] w-screen overflow-hidden bg-background font-sans antialiased text-foreground selection:bg-primary/20",
           fontSans.variable
         )}
       >
@@ -41,8 +48,10 @@ export default function RootLayout({
           <Toaster richColors position="bottom-center" visibleToasts={1} toastOptions={{
             className: 'mb-12 shadow-lg border-border/20 rounded-full px-6'
           }} />
-          <main className="max-w-md mx-auto min-h-screen p-6 relative shadow-2xl bg-background border-x border-border/10 pb-32">
-            {children}
+          <main className="mx-auto h-full max-w-md flex flex-col relative shadow-2xl bg-background border-x border-border/10">
+            <div className="flex-1 overflow-y-auto overscroll-contain p-6 pb-32 scrollbar-hide">
+              {children}
+            </div>
             <VoiceAgent />
             {/* Invisible Debug Interceptor */}
             <DebugListener />
